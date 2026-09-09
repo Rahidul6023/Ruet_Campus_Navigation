@@ -1,27 +1,23 @@
-package com.ruet.nav;
+package com.ruet.campusmap;
 
 import javafx.application.Application;
-import javafx.fxml.FXMLLoader;
 import javafx.scene.Scene;
-import javafx.scene.image.Image;
+import javafx.scene.control.Label;
+import javafx.scene.layout.StackPane;
 import javafx.stage.Stage;
-
-import java.io.IOException;
-import java.util.Objects;
 
 public class MainApp extends Application {
 
     @Override
-    public void start(Stage stage) throws IOException {
-        FXMLLoader loader = new FXMLLoader(getClass().getResource("/com/ruet/nav/main-view.fxml"));
-        Scene scene = new Scene(loader.load(), 1100, 750);
-        scene.getStylesheets().add(
-                Objects.requireNonNull(getClass().getResource("/com/ruet/nav/style.css")).toExternalForm());
+    public void start(Stage stage) {
 
-        stage.setTitle("RUET Navigation System");
+        Label label = new Label("RUET Campus Map");
+        StackPane root = new StackPane(label);
+
+        Scene scene = new Scene(root, 1200, 800);
+
+        stage.setTitle("RUET Campus Map");
         stage.setScene(scene);
-        stage.setMinWidth(900);
-        stage.setMinHeight(600);
         stage.show();
     }
 
