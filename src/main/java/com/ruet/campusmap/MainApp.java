@@ -75,7 +75,16 @@ public class MainApp extends Application {
 
         // Google Maps-style Search Bar (Modular & decoupled)
         MapSearchBar searchBar = new MapSearchBar(mapGroup, root);
-        root.getChildren().add(searchBar.getContainer());
+        
+        // Floating Settings & Admin Buttons (Top-Right)
+        MapActionButtons actionButtons = new MapActionButtons();
+
+        // Floating Zoom In/Out & Location Controls (Bottom-Center)
+        MapBottomControls bottomControls = new MapBottomControls(mapGroup);
+
+        root.getChildren().addAll(searchBar.getContainer(), actionButtons.getContainer(), bottomControls.getContainer());
+
+
 
 
 
