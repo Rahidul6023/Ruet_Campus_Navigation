@@ -5,6 +5,7 @@ import javafx.scene.Scene;
 import javafx.scene.control.Label;
 import javafx.scene.layout.StackPane;
 import javafx.stage.Stage;
+import javafx.stage.StageStyle;
 
 public class MainApp extends Application {
 
@@ -18,6 +19,7 @@ public class MainApp extends Application {
 
         stage.setTitle("RUET Campus Map");
         stage.setScene(scene);
+        stage.setMaximized(true);
         stage.show();
     }
 
