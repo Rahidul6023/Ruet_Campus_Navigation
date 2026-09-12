@@ -72,6 +72,23 @@ public class MainApp extends Application {
 
         Label label = new Label("RUET Campus Map");
         StackPane root = new StackPane(mapGroup,label);
+
+        // Map Panning
+        root.setOnMousePressed(event -> {
+            lastMouseX = event.getSceneX();
+            lastMouseY = event.getSceneY();
+        });
+
+        root.setOnMouseDragged(event -> {
+            double deltaX = event.getSceneX() - lastMouseX;
+            double deltaY = event.getSceneY() - lastMouseY;
+        mapGroup.setTranslateX(mapGroup.getTranslateX() + deltaX);
+        mapGroup.setTranslateY((mapGroup.getTranslateY() + deltaY));
+
+        lastMouseX = event.getSceneX();
+        lastMouseY = event.getSceneY();
+        });
+
         Scene scene = new Scene(root, 1200, 800);
 
         stage.setTitle("RUET Campus Map");
