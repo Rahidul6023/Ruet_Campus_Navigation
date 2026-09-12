@@ -82,8 +82,17 @@ public class MainApp extends Application {
         root.setOnMouseDragged(event -> {
             double deltaX = event.getSceneX() - lastMouseX;
             double deltaY = event.getSceneY() - lastMouseY;
-        mapGroup.setTranslateX(mapGroup.getTranslateX() + deltaX);
-        mapGroup.setTranslateY((mapGroup.getTranslateY() + deltaY));
+        double newX = mapGroup.getTranslateX() + deltaX;
+        double newY = mapGroup.getTranslateY() + deltaY;
+        double viewWidth = root.getWidth();
+        double viewHeight = root.getHeight();
+        double minX = -(mapWidth-viewWidth) -400;
+        double maxX = 400;
+        double minY = -(mapHeight - viewHeight) -400;
+        double maxY = 400;
+
+        mapGroup.setTranslateX(Math.max(minX,Math.min(maxX,newX)));
+        mapGroup.setTranslateY(Math.max(minY,Math.min(maxY,newY)));
 
         lastMouseX = event.getSceneX();
         lastMouseY = event.getSceneY();
