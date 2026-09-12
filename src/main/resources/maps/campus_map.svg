@@ -1,0 +1,160 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 2000 1300" width="2000" height="1300">
+  <defs>
+    <linearGradient id="grassGrad" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#2d5a27"/>
+      <stop offset="100%" stop-color="#1e3f1a"/>
+    </linearGradient>
+    <linearGradient id="pondGrad" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#1b4d6e"/>
+      <stop offset="100%" stop-color="#0f2b3e"/>
+    </linearGradient>
+    <filter id="dropShadow" x="-10%" y="-10%" width="130%" height="130%">
+      <feDropShadow dx="4" dy="6" stdDeviation="5" flood-color="#000000" flood-opacity="0.4"/>
+    </filter>
+  </defs>
+
+  <!-- Background / Campus Terrain -->
+  <rect width="2000" height="1300" fill="url(#grassGrad)"/>
+
+  <!-- Grid overlay subtle pattern for orientation -->
+  <g opacity="0.08" stroke="#ffffff" stroke-width="1">
+    <line x1="0" y1="200" x2="2000" y2="200"/>
+    <line x1="0" y1="400" x2="2000" y2="400"/>
+    <line x1="0" y1="600" x2="2000" y2="600"/>
+    <line x1="0" y1="800" x2="2000" y2="800"/>
+    <line x1="0" y1="1000" x2="2000" y2="1000"/>
+    <line x1="0" y1="1200" x2="2000" y2="1200"/>
+    <line x1="300" y1="0" x2="300" y2="1300"/>
+    <line x1="600" y1="0" x2="600" y2="1300"/>
+    <line x1="900" y1="0" x2="900" y2="1300"/>
+    <line x1="1200" y1="0" x2="1200" y2="1300"/>
+    <line x1="1500" y1="0" x2="1500" y2="1300"/>
+    <line x1="1800" y1="0" x2="1800" y2="1300"/>
+  </g>
+
+  <!-- Campus Ponds (Water bodies) -->
+  <!-- Shahid Shahidul Islam Pond -->
+  <path d="M 280,720 Q 320,680 440,700 Q 560,720 540,840 Q 510,950 380,940 Q 260,930 250,830 Z" fill="url(#pondGrad)" stroke="#3a7fa5" stroke-width="4"/>
+  <text x="340" y="820" fill="#a0c8e2" font-family="Arial" font-size="16" font-weight="bold" opacity="0.8">Shahidul Islam Pond</text>
+
+  <!-- East Pond -->
+  <path d="M 1480,480 Q 1550,440 1680,470 Q 1800,500 1780,620 Q 1750,710 1620,700 Q 1480,690 1460,590 Z" fill="url(#pondGrad)" stroke="#3a7fa5" stroke-width="4"/>
+  <text x="1560" y="580" fill="#a0c8e2" font-family="Arial" font-size="16" font-weight="bold" opacity="0.8">Campus East Lake</text>
+
+  <!-- Main Roads & Pathways -->
+  <!-- Main Entrance Avenue -->
+  <path d="M 150,1300 L 150,980 L 1050,980 L 1050,300 L 1850,300" fill="none" stroke="#4a4d52" stroke-width="44" stroke-linejoin="round" stroke-linecap="round"/>
+  <path d="M 150,1300 L 150,980 L 1050,980 L 1050,300 L 1850,300" fill="none" stroke="#e0e0e0" stroke-width="2" stroke-dasharray="16,14"/>
+
+  <!-- Academic Loop Road -->
+  <path d="M 500,980 L 500,420 L 1550,420 L 1550,980 Z" fill="none" stroke="#3d4044" stroke-width="28" stroke-linejoin="round"/>
+  <path d="M 500,980 L 500,420 L 1550,420 L 1550,980 Z" fill="none" stroke="#c9a843" stroke-width="2" stroke-dasharray="12,12"/>
+
+  <!-- Secondary Pathways -->
+  <path d="M 1050,980 L 1050,1200 L 1600,1200" fill="none" stroke="#5a5e63" stroke-width="18" stroke-linejoin="round"/>
+  <path d="M 500,680 L 250,680" fill="none" stroke="#5a5e63" stroke-width="18"/>
+  <path d="M 1550,700 L 1850,700" fill="none" stroke="#5a5e63" stroke-width="18"/>
+  <path d="M 750,420 L 750,220 L 1350,220 L 1350,420" fill="none" stroke="#5a5e63" stroke-width="18"/>
+
+  <!-- Central Playground / Stadium -->
+  <rect x="680" y="600" width="320" height="220" rx="30" fill="#38732e" stroke="#ffffff" stroke-width="3" opacity="0.9"/>
+  <!-- Field Markings -->
+  <circle cx="840" cy="710" r="45" fill="none" stroke="#ffffff" stroke-width="2"/>
+  <line x1="840" y1="600" x2="840" y2="820" stroke="#ffffff" stroke-width="2"/>
+  <text x="770" y="716" fill="#ffffff" font-family="Arial" font-size="18" font-weight="bold" opacity="0.85">RUET Central Field</text>
+
+  <!-- BUILDINGS SECTION (With clear polygonal shapes) -->
+
+  <!-- 1. Administrative Building -->
+  <g filter="url(#dropShadow)">
+    <polygon points="320,1050 480,1050 480,1180 320,1180" fill="#8c3b31" stroke="#5a1e16" stroke-width="3"/>
+    <polygon points="480,1080 540,1080 540,1150 480,1150" fill="#a4483d" stroke="#5a1e16" stroke-width="2"/>
+    <text x="330" y="1120" fill="#ffffff" font-family="Arial" font-size="16" font-weight="bold">Admin Building</text>
+  </g>
+
+  <!-- 2. Central Library & Auditorium -->
+  <g filter="url(#dropShadow)">
+    <polygon points="620,1040 820,1040 820,1160 620,1160" fill="#305a75" stroke="#1d3849" stroke-width="3"/>
+    <polygon points="820,1060 900,1060 880,1140 820,1140" fill="#3d7294" stroke="#1d3849" stroke-width="2"/>
+    <text x="640" y="1105" fill="#ffffff" font-family="Arial" font-size="16" font-weight="bold">Central Library</text>
+    <text x="645" y="1130" fill="#d0e2ec" font-family="Arial" font-size="13">&amp; Auditorium</text>
+  </g>
+
+  <!-- 3. CSE Building (Complex L-shape polygon) -->
+  <g filter="url(#dropShadow)">
+    <polygon points="260,460 440,460 440,540 360,540 360,620 260,620" fill="#9c5b28" stroke="#5e3412" stroke-width="3"/>
+    <text x="275" y="500" fill="#ffffff" font-family="Arial" font-size="17" font-weight="bold">CSE Building</text>
+    <text x="275" y="525" fill="#ffe2cc" font-family="Arial" font-size="12">Dept of CSE</text>
+  </g>
+
+  <!-- 4. EEE Building (U-shape / Double wing) -->
+  <g filter="url(#dropShadow)">
+    <polygon points="560,260 760,260 760,380 700,380 700,310 620,310 620,380 560,380" fill="#9c3b28" stroke="#611e11" stroke-width="3"/>
+    <text x="635" y="295" fill="#ffffff" font-family="Arial" font-size="16" font-weight="bold">EEE Building</text>
+  </g>
+
+  <!-- 5. Civil Engineering Building -->
+  <g filter="url(#dropShadow)">
+    <polygon points="840,240 1020,240 1020,380 950,380 950,300 840,300" fill="#4a5f6e" stroke="#253540" stroke-width="3"/>
+    <text x="855" y="275" fill="#ffffff" font-family="Arial" font-size="16" font-weight="bold">Civil Building</text>
+  </g>
+
+  <!-- 6. Mechanical Engineering Building -->
+  <g filter="url(#dropShadow)">
+    <polygon points="1120,240 1320,240 1320,370 1120,370" fill="#586e4a" stroke="#314028" stroke-width="3"/>
+    <polygon points="1200,370 1320,370 1320,440 1200,440" fill="#6d875c" stroke="#314028" stroke-width="2"/>
+    <text x="1135" y="295" fill="#ffffff" font-family="Arial" font-size="16" font-weight="bold">Mechanical Eng.</text>
+    <text x="1140" y="320" fill="#e2f0da" font-family="Arial" font-size="12">ME Complex</text>
+  </g>
+
+  <!-- 7. Architecture & Humanities Building -->
+  <g filter="url(#dropShadow)">
+    <polygon points="1400,260 1560,260 1560,380 1400,380" fill="#6b4a6e" stroke="#3e2640" stroke-width="3"/>
+    <text x="1415" y="320" fill="#ffffff" font-family="Arial" font-size="16" font-weight="bold">Arch Building</text>
+  </g>
+
+  <!-- 8. Student Cafeteria / TSC -->
+  <g filter="url(#dropShadow)">
+    <polygon points="1120,620 1260,620 1280,740 1140,740" fill="#a87d2a" stroke="#614510" stroke-width="3"/>
+    <text x="1150" y="680" fill="#ffffff" font-family="Arial" font-size="16" font-weight="bold">TSC &amp; Cafe</text>
+  </g>
+
+  <!-- 9. Shahid Hall Complex (Residential) -->
+  <g filter="url(#dropShadow)">
+    <polygon points="1120,860 1340,860 1340,960 1120,960" fill="#7a4237" stroke="#4a221a" stroke-width="3"/>
+    <text x="1140" y="915" fill="#ffffff" font-family="Arial" font-size="16" font-weight="bold">Shahid Hall</text>
+  </g>
+
+  <!-- 10. Zia Hall Complex -->
+  <g filter="url(#dropShadow)">
+    <polygon points="1420,860 1640,860 1640,960 1420,960" fill="#7a4237" stroke="#4a221a" stroke-width="3"/>
+    <text x="1445" y="915" fill="#ffffff" font-family="Arial" font-size="16" font-weight="bold">Zia Hall</text>
+  </g>
+
+  <!-- 11. Medical Center / Gymnasium -->
+  <g filter="url(#dropShadow)">
+    <polygon points="1120,1040 1280,1040 1280,1140 1120,1140" fill="#2d6e64" stroke="#16403a" stroke-width="3"/>
+    <text x="1135" y="1095" fill="#ffffff" font-family="Arial" font-size="15" font-weight="bold">Medical / Gym</text>
+  </g>
+
+  <!-- Main Gate Marker -->
+  <g>
+    <rect x="90" y="1260" width="120" height="30" fill="#d9534f" stroke="#222" stroke-width="2"/>
+    <text x="100" y="1282" fill="#ffffff" font-family="Arial" font-size="14" font-weight="bold">MAIN GATE</text>
+  </g>
+
+  <!-- Compass / North Arrow -->
+  <g transform="translate(1860, 100)">
+    <circle cx="0" cy="0" r="40" fill="#111827" stroke="#ffffff" stroke-width="2" opacity="0.8"/>
+    <polygon points="0,-32 10,0 0,-8" fill="#e53e3e"/>
+    <polygon points="0,-32 -10,0 0,-8" fill="#fc8181"/>
+    <polygon points="0,32 10,0 0,8" fill="#718096"/>
+    <polygon points="0,32 -10,0 0,8" fill="#e2e8f0"/>
+    <text x="-6" y="-12" fill="#ffffff" font-family="Arial" font-size="14" font-weight="bold">N</text>
+  </g>
+
+  <!-- Title Plate -->
+  <rect x="40" y="40" width="440" height="80" rx="10" fill="#111827" opacity="0.85" stroke="#4f46e5" stroke-width="2"/>
+  <text x="60" y="80" fill="#f9fafb" font-family="Arial" font-size="24" font-weight="bold">RUET DIGITAL CAMPUS</text>
+  <text x="60" y="105" fill="#9ca3af" font-family="Arial" font-size="14">Rajshahi University of Engineering &amp; Technology</text>
+</svg>

@@ -6,11 +6,13 @@ import javafx.application.Application;
 import javafx.scene.Scene;
 import javafx.scene.control.Label;
 import javafx.scene.layout.StackPane;
+import javafx.scene.layout.Pane;
 import javafx.stage.Stage;
-import javafx.stage.StageStyle;
-import javafx.scene.image.Image;
-import javafx.scene.image.ImageView;
 import javafx.scene.web.WebView;
+import javafx.scene.Group;
+import javafx.scene.paint.Color;
+import javafx.scene.shape.Polygon;
+
 
 public class MainApp extends Application {
 
@@ -20,6 +22,11 @@ public class MainApp extends Application {
     @Override
     public void start(Stage stage) {
         String svgUrl = getClass().getResource("/maps/in.svg").toExternalForm();
+
+        double mapWidth = 2000;
+        double mapHeight = 1300;
+
+        // SVG Map Integration
         WebView campusView = new WebView();
         campusView.getEngine().load(svgUrl);
         campusView.getEngine().getLoadWorker().stateProperty().addListener(((obs,oldState,newState)->{
@@ -39,21 +46,32 @@ public class MainApp extends Application {
             }
         });
 
-        campusView.setOnMousePressed(event ->{
-            lastMouseX  = event.getScreenX();
-            lastMouseY = event.getScreenY();
-        });
-        campusView.setOnMouseDragged(event -> {
-            double deltaX = event.getScreenX()-lastMouseX;
-            double deltaY = event.getScreenY()-lastMouseY;
-            campusView.getEngine().executeScript(
-                String.format(java.util.Locale.US,"window.scrollBy(%f, %f);",-deltaX,-deltaY)
-            );
-            lastMouseX = event.getScreenX();
-            lastMouseY = event.getScreenY();
-        });
+        // Map Size Defining
+        campusView.setPrefSize(mapWidth,mapHeight);
+        campusView.setMinSize(mapWidth,mapHeight);
+        campusView.setMaxSize(mapWidth,mapHeight);
+        campusView.setMouseTransparent(true);
+
+        // Creating Polygon layer
+        Pane polygonLayer = new Pane();
+        polygonLayer.setPrefSize(mapWidth, mapHeight);
+
+        // Test Polygon
+        Polygon testPoly = new Polygon(
+            320.0, 450.0,
+            500.0, 450.0,
+            500.0, 580.0,
+            320.0, 580.0
+        );
+        testPoly.setFill(Color.rgb(0,180,255, 0.45));
+        testPoly.setStroke(Color.rgb(0, 180, 255));
+        testPoly.setStrokeWidth(2.5);
+        polygonLayer.getChildren().add(testPoly);
+
+        Group mapGroup = new Group(campusView,polygonLayer);
+
         Label label = new Label("RUET Campus Map");
-        StackPane root = new StackPane(campusView,label);
+        StackPane root = new StackPane(mapGroup,label);
         Scene scene = new Scene(root, 1200, 800);
 
         stage.setTitle("RUET Campus Map");
