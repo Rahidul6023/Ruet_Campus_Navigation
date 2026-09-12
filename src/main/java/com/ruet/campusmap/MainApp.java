@@ -98,6 +98,20 @@ public class MainApp extends Application {
         lastMouseY = event.getSceneY();
         });
 
+        // Map Zooming
+        root.setOnScroll(event -> {
+            double zoomFactor = (event.getDeltaY()>0)? 1.1:0.9;
+            double currentScale = mapGroup.getScaleX();
+            double newScale = currentScale*zoomFactor;
+
+            if(newScale >= 0.5 && newScale <= 4.0) {
+                mapGroup.setScaleX(newScale);
+                mapGroup.setScaleY(newScale);
+            }
+
+            event.consume();
+        });
+
         Scene scene = new Scene(root, 1200, 800);
 
         stage.setTitle("RUET Campus Map");
