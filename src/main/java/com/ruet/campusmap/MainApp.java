@@ -71,7 +71,13 @@ public class MainApp extends Application {
         Group mapGroup = new Group(campusView,polygonLayer);
 
         Label label = new Label("RUET Campus Map");
-        StackPane root = new StackPane(mapGroup,label);
+        StackPane root = new StackPane(mapGroup, label);
+
+        // Google Maps-style Search Bar (Modular & decoupled)
+        MapSearchBar searchBar = new MapSearchBar(mapGroup, root);
+        root.getChildren().add(searchBar.getContainer());
+
+
 
         // Map Panning
         root.setOnMousePressed(event -> {
