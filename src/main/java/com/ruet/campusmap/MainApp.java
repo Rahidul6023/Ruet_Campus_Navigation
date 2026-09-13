@@ -38,7 +38,6 @@ public class MainApp extends Application {
             "data:text/css;charset=utf-8," + 
             java.net.URLEncoder.encode("::-webkit-scrollbar { display: none !important; width: 0 !important; height: 0 !important; }", java.nio.charset.StandardCharsets.UTF_8)
         );
-
         campusView.getChildrenUnmodifiable().addListener((javafx.collections.ListChangeListener<javafx.scene.Node>) change -> {
             for (javafx.scene.Node node : campusView.lookupAll(".scroll-bar")) {
                 node.setVisible(false);
