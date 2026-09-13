@@ -60,10 +60,15 @@ public class MainApp extends Application {
         Pane polygonLayer = new Pane();
         polygonLayer.setPrefSize(mapWidth, mapHeight);
 
+        // Modern floating building info card (Bottom-Left)
+        com.ruet.campusmap.view.BuildingInfoCard buildingInfoCard = new com.ruet.campusmap.view.BuildingInfoCard();
+
         // Load and display all saved building polygons from campus.json
         List<com.ruet.campusmap.model.BuildingPolygon> initialBuildings = com.ruet.campusmap.service.PolygonDataLoader.loadBuildingPolygons();
         for (com.ruet.campusmap.model.BuildingPolygon bp : initialBuildings) {
-            polygonLayer.getChildren().add(com.ruet.campusmap.service.PolygonDataLoader.createJavaFXPolygon(bp));
+            polygonLayer.getChildren().add(com.ruet.campusmap.service.PolygonDataLoader.createJavaFXPolygon(bp, clickedBp -> {
+                buildingInfoCard.showBuilding(clickedBp);
+            }));
         }
 
         Group mapGroup = new Group(campusView,polygonLayer);
@@ -79,7 +84,7 @@ public class MainApp extends Application {
         // Floating Zoom In/Out & Location Controls (Bottom-Center)
         MapBottomControls bottomControls = new MapBottomControls(mapGroup);
 
-        root.getChildren().addAll(searchBar.getContainer(), actionButtons.getContainer(), bottomControls.getContainer());
+        root.getChildren().addAll(searchBar.getContainer(), actionButtons.getContainer(), bottomControls.getContainer(), buildingInfoCard.getContainer());
 
         // Modular Map Editor Manager
         MapEditorManager editorManager = new MapEditorManager(root, polygonLayer);
