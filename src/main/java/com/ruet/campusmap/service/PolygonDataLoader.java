@@ -66,14 +66,26 @@ public class PolygonDataLoader {
      * Converts a BuildingPolygon data model into an interactive JavaFX Polygon.
      */
     public static Polygon createJavaFXPolygon(BuildingPolygon model) {
-        return createJavaFXPolygon(model, null);
+        return createJavaFXPolygon(model, (java.util.function.BiConsumer<BuildingPolygon, Polygon>) null);
     }
 
     /**
      * Converts a BuildingPolygon data model into an interactive JavaFX Polygon with custom click callback.
      */
     public static Polygon createJavaFXPolygon(BuildingPolygon model, java.util.function.Consumer<BuildingPolygon> onClick) {
+        return createJavaFXPolygon(model, (bp, poly) -> {
+            if (onClick != null) {
+                onClick.accept(bp);
+            }
+        });
+    }
+
+    /**
+     * Converts a BuildingPolygon data model into an interactive JavaFX Polygon with (model, polygon) callback.
+     */
+    public static Polygon createJavaFXPolygon(BuildingPolygon model, java.util.function.BiConsumer<BuildingPolygon, Polygon> onPolygonClick) {
         Polygon polygon = new Polygon();
+        polygon.setUserData(model);
 
         // Flatten points from List<double[]> to JavaFX ObservableList<Double>
         if (model.getPoints() != null) {
@@ -84,12 +96,8 @@ public class PolygonDataLoader {
             }
         }
 
-        // Style the polygon
-        Color baseColor = Color.web(model.getColor() != null ? model.getColor() : "#3498DB");
-        Color fillColor = new Color(baseColor.getRed(), baseColor.getGreen(), baseColor.getBlue(), 0.45);
-
-        polygon.setFill(fillColor);
-        polygon.setStroke(baseColor);
+        // Apply initial color and style
+        applyPolygonStyle(polygon, model.getColor());
         polygon.setStrokeWidth(2.0);
 
         // Tooltip showing building name
@@ -100,24 +108,35 @@ public class PolygonDataLoader {
 
         // Subtle hover feedback
         polygon.setOnMouseEntered(e -> {
+            String color = model.getColor() != null ? model.getColor() : "#3498DB";
+            Color baseColor = Color.web(color);
             polygon.setFill(new Color(baseColor.getRed(), baseColor.getGreen(), baseColor.getBlue(), 0.7));
             polygon.setStrokeWidth(3.0);
         });
 
         polygon.setOnMouseExited(e -> {
-            polygon.setFill(fillColor);
+            applyPolygonStyle(polygon, model.getColor());
             polygon.setStrokeWidth(2.0);
         });
 
-        if (onClick != null) {
+        if (onPolygonClick != null) {
             polygon.setOnMouseClicked(e -> {
                 if (e.getButton() == javafx.scene.input.MouseButton.PRIMARY) {
-                    onClick.accept(model);
-                    e.consume(); // Prevent click from triggering map pan/drag
+                    onPolygonClick.accept(model, polygon);
                 }
             });
         }
 
         return polygon;
+    }
+
+    /**
+     * Updates the fill and stroke of a JavaFX polygon according to a hex color.
+     */
+    public static void applyPolygonStyle(Polygon polygon, String hexColor) {
+        Color baseColor = Color.web(hexColor != null && !hexColor.isEmpty() ? hexColor : "#3498DB");
+        Color fillColor = new Color(baseColor.getRed(), baseColor.getGreen(), baseColor.getBlue(), 0.45);
+        polygon.setFill(fillColor);
+        polygon.setStroke(baseColor);
     }
 }

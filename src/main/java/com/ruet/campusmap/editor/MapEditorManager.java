@@ -49,9 +49,16 @@ public class MapEditorManager {
     private Button undoBtn;
     private Button cancelBtn;
 
+    private final java.util.function.Consumer<BuildingPolygon> onBuildingSelect;
+
     public MapEditorManager(StackPane root, Pane polygonLayer) {
+        this(root, polygonLayer, null);
+    }
+
+    public MapEditorManager(StackPane root, Pane polygonLayer, java.util.function.Consumer<BuildingPolygon> onBuildingSelect) {
         this.root = root;
         this.polygonLayer = polygonLayer;
+        this.onBuildingSelect = onBuildingSelect;
 
         // Load existing saved buildings so subsequent saves don't overwrite them
         List<BuildingPolygon> existing = com.ruet.campusmap.service.PolygonDataLoader.loadBuildingPolygons();
@@ -283,12 +290,34 @@ public class MapEditorManager {
             savedBuildings.add(bp);
 
             // Create Visual JavaFX Polygon on the map using PolygonDataLoader
-            Polygon finalPoly = com.ruet.campusmap.service.PolygonDataLoader.createJavaFXPolygon(bp);
+            Polygon finalPoly = com.ruet.campusmap.service.PolygonDataLoader.createJavaFXPolygon(bp, (clickedBp, p) -> {
+                handlePolygonClick(clickedBp, p);
+            });
             polygonLayer.getChildren().add(finalPoly);
 
             // Reset drawing state for next polygon
             resetDrawingState();
         }
+    }
+
+    public void handlePolygonClick(BuildingPolygon bp, Polygon poly) {
+        if (!active) {
+            if (onBuildingSelect != null) {
+                onBuildingSelect.accept(bp);
+            }
+            return;
+        }
+
+        // In draw mode, clicks should place points, not open edit
+        if (isDrawMode) {
+            return;
+        }
+
+        openEditBuildingDialog(bp, poly);
+    }
+
+    private void openEditBuildingDialog(BuildingPolygon bp, Polygon poly) {
+        // Will show dialog
     }
 
     private void resetDrawingState() {
@@ -339,5 +368,9 @@ public class MapEditorManager {
 
     public boolean isDrawMode() {
         return active && isDrawMode;
+    }
+
+    public boolean isActive() {
+        return active;
     }
 }

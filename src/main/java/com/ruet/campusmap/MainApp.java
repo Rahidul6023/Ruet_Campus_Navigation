@@ -63,17 +63,21 @@ public class MainApp extends Application {
         // Modern floating building info card (Bottom-Left)
         com.ruet.campusmap.view.BuildingInfoCard buildingInfoCard = new com.ruet.campusmap.view.BuildingInfoCard();
 
+        Group mapGroup = new Group(campusView, polygonLayer);
+        StackPane root = new StackPane(mapGroup);
+
+        // Modular Map Editor Manager
+        MapEditorManager editorManager = new MapEditorManager(root, polygonLayer, clickedBp -> {
+            buildingInfoCard.showBuilding(clickedBp);
+        });
+
         // Load and display all saved building polygons from campus.json
         List<com.ruet.campusmap.model.BuildingPolygon> initialBuildings = com.ruet.campusmap.service.PolygonDataLoader.loadBuildingPolygons();
         for (com.ruet.campusmap.model.BuildingPolygon bp : initialBuildings) {
-            polygonLayer.getChildren().add(com.ruet.campusmap.service.PolygonDataLoader.createJavaFXPolygon(bp, clickedBp -> {
-                buildingInfoCard.showBuilding(clickedBp);
+            polygonLayer.getChildren().add(com.ruet.campusmap.service.PolygonDataLoader.createJavaFXPolygon(bp, (clickedBp, poly) -> {
+                editorManager.handlePolygonClick(clickedBp, poly);
             }));
         }
-
-        Group mapGroup = new Group(campusView,polygonLayer);
-
-        StackPane root = new StackPane(mapGroup);
 
         // RUET Campus Brand Badge with Logo SVG (Top-Left)
         com.ruet.campusmap.view.CampusBrandBadge brandBadge = new com.ruet.campusmap.view.CampusBrandBadge();
@@ -94,9 +98,6 @@ public class MainApp extends Application {
             bottomControls.getContainer(),
             buildingInfoCard.getContainer()
         );
-
-        // Modular Map Editor Manager
-        MapEditorManager editorManager = new MapEditorManager(root, polygonLayer);
 
         // When Admin Button is clicked -> Show password modal -> Activate editor on success
         actionButtons.setOnAdminAction(() -> {
