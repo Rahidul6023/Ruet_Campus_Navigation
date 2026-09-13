@@ -144,9 +144,11 @@ public class MapEditorManager {
         if (isDrawMode) {
             modeBtn.setText("Mode: DRAW (Click map to add points)");
             modeBtn.setStyle("-fx-background-color: #fce8e6; -fx-text-fill: #c5221f; -fx-font-weight: bold; -fx-cursor: hand;");
+            polygonLayer.setCursor(javafx.scene.Cursor.CROSSHAIR);
         } else {
             modeBtn.setText("Mode: PAN");
             modeBtn.setStyle("-fx-background-color: #f1f3f4; -fx-cursor: hand; -fx-font-weight: bold;");
+            polygonLayer.setCursor(javafx.scene.Cursor.DEFAULT);
         }
     }
 
@@ -222,6 +224,7 @@ public class MapEditorManager {
         if (active) {
             active = false;
             isDrawMode = false;
+            polygonLayer.setCursor(javafx.scene.Cursor.DEFAULT);
             resetDrawingState();
             root.getChildren().remove(toolbar);
         }
