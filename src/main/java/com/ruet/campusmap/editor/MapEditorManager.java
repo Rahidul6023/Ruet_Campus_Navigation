@@ -45,6 +45,7 @@ public class MapEditorManager {
     private HBox toolbar;
     private Button modeBtn;
     private Button finishBtn;
+    private Button undoBtn;
 
     public MapEditorManager(StackPane root, Pane polygonLayer) {
         this.root = root;
@@ -88,6 +89,11 @@ public class MapEditorManager {
         modeBtn.setStyle("-fx-background-color: #f1f3f4; -fx-cursor: hand; -fx-font-weight: bold;");
         modeBtn.setOnAction(e -> toggleDrawMode());
 
+        undoBtn = new Button("Undo Point");
+        undoBtn.setStyle("-fx-background-color: #f1f3f4; -fx-cursor: hand;");
+        undoBtn.setDisable(true);
+        undoBtn.setOnAction(e -> undoLastPoint());
+
         finishBtn = new Button("Finish Polygon");
         finishBtn.setStyle("-fx-background-color: #1a73e8; -fx-text-fill: white; -fx-cursor: hand; -fx-font-weight: bold;");
         finishBtn.setDisable(true);
@@ -105,14 +111,25 @@ public class MapEditorManager {
         toolbar.setOnMousePressed(javafx.event.Event::consume);
         toolbar.setOnMouseDragged(javafx.event.Event::consume);
 
-        toolbar.getChildren().addAll(editorBadge, modeBtn, finishBtn, saveBtn, exitBtn);
+        toolbar.getChildren().addAll(editorBadge, modeBtn, undoBtn, finishBtn, saveBtn, exitBtn);
         StackPane.setAlignment(toolbar, Pos.BOTTOM_CENTER);
         StackPane.setMargin(toolbar, new Insets(0, 0, 30, 0));
     }
 
     private void setupMouseListeners() {
         polygonLayer.setOnMouseClicked(event -> {
-            if (!active || !isDrawMode || event.getButton() != MouseButton.PRIMARY) {
+            if (!active || !isDrawMode) {
+                return;
+            }
+
+            // Right-click removes the last point while drawing
+            if (event.getButton() == MouseButton.SECONDARY) {
+                undoLastPoint();
+                event.consume();
+                return;
+            }
+
+            if (event.getButton() != MouseButton.PRIMARY) {
                 return;
             }
 
@@ -132,11 +149,37 @@ public class MapEditorManager {
             dot.setStrokeWidth(1.0);
             markerGroup.getChildren().add(dot);
 
-            // Enable finish button once we have at least 3 vertices (6 coordinates)
-            if (currentPoints.size() >= 6) {
-                finishBtn.setDisable(false);
-            }
+            updateButtonStates();
         });
+    }
+
+    private void undoLastPoint() {
+        if (currentPoints.size() >= 2) {
+            currentPoints.remove(currentPoints.size() - 1);
+            currentPoints.remove(currentPoints.size() - 1);
+
+            int pSize = previewPolygon.getPoints().size();
+            if (pSize >= 2) {
+                previewPolygon.getPoints().remove(pSize - 1);
+                previewPolygon.getPoints().remove(pSize - 2);
+            }
+
+            int mSize = markerGroup.getChildren().size();
+            if (mSize > 0) {
+                markerGroup.getChildren().remove(mSize - 1);
+            }
+
+            updateButtonStates();
+        }
+    }
+
+    private void updateButtonStates() {
+        if (undoBtn != null) {
+            undoBtn.setDisable(currentPoints.isEmpty());
+        }
+        if (finishBtn != null) {
+            finishBtn.setDisable(currentPoints.size() < 6);
+        }
     }
 
     private void toggleDrawMode() {
@@ -189,7 +232,7 @@ public class MapEditorManager {
         currentPoints.clear();
         previewPolygon.getPoints().clear();
         markerGroup.getChildren().clear();
-        finishBtn.setDisable(true);
+        updateButtonStates();
     }
 
     private void savePolygonsToJson() {
