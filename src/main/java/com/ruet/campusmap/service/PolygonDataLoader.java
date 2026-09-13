@@ -66,6 +66,13 @@ public class PolygonDataLoader {
      * Converts a BuildingPolygon data model into an interactive JavaFX Polygon.
      */
     public static Polygon createJavaFXPolygon(BuildingPolygon model) {
+        return createJavaFXPolygon(model, null);
+    }
+
+    /**
+     * Converts a BuildingPolygon data model into an interactive JavaFX Polygon with custom click callback.
+     */
+    public static Polygon createJavaFXPolygon(BuildingPolygon model, java.util.function.Consumer<BuildingPolygon> onClick) {
         Polygon polygon = new Polygon();
 
         // Flatten points from List<double[]> to JavaFX ObservableList<Double>
@@ -101,6 +108,15 @@ public class PolygonDataLoader {
             polygon.setFill(fillColor);
             polygon.setStrokeWidth(2.0);
         });
+
+        if (onClick != null) {
+            polygon.setOnMouseClicked(e -> {
+                if (e.getButton() == javafx.scene.input.MouseButton.PRIMARY) {
+                    onClick.accept(model);
+                    e.consume(); // Prevent click from triggering map pan/drag
+                }
+            });
+        }
 
         return polygon;
     }
