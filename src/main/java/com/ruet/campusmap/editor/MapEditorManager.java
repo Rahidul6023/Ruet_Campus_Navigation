@@ -36,6 +36,7 @@ public class MapEditorManager {
     // Drawing state
     private final List<Double> currentPoints = new ArrayList<>();
     private final Polygon previewPolygon = new Polygon();
+    private final javafx.scene.shape.Line guideLine = new javafx.scene.shape.Line();
     private final Group markerGroup = new Group();
 
     // Permanent polygons in memory
@@ -67,7 +68,13 @@ public class MapEditorManager {
         previewPolygon.setStroke(Color.rgb(192, 57, 43));
         previewPolygon.setStrokeWidth(2.0);
 
-        polygonLayer.getChildren().addAll(previewPolygon, markerGroup);
+        guideLine.setStroke(Color.rgb(231, 76, 60, 0.8));
+        guideLine.setStrokeWidth(1.5);
+        guideLine.getStrokeDashArray().addAll(6.0, 4.0);
+        guideLine.setMouseTransparent(true);
+        guideLine.setVisible(false);
+
+        polygonLayer.getChildren().addAll(previewPolygon, guideLine, markerGroup);
     }
 
     private void setupToolbar() {
@@ -171,7 +178,30 @@ public class MapEditorManager {
             dot.setStrokeWidth(1.0);
             markerGroup.getChildren().add(dot);
 
+            // Update guide line start anchor
+            guideLine.setStartX(mapX);
+            guideLine.setStartY(mapY);
+            guideLine.setEndX(mapX);
+            guideLine.setEndY(mapY);
+            guideLine.setVisible(true);
+
             updateButtonStates();
+        });
+
+        // Dynamic rubber-band guide line following the mouse cursor
+        polygonLayer.setOnMouseMoved(event -> {
+            if (!active || !isDrawMode || currentPoints.isEmpty()) {
+                guideLine.setVisible(false);
+                return;
+            }
+            Point2D mapCoords = polygonLayer.sceneToLocal(event.getSceneX(), event.getSceneY());
+            double lastX = currentPoints.get(currentPoints.size() - 2);
+            double lastY = currentPoints.get(currentPoints.size() - 1);
+            guideLine.setStartX(lastX);
+            guideLine.setStartY(lastY);
+            guideLine.setEndX(mapCoords.getX());
+            guideLine.setEndY(mapCoords.getY());
+            guideLine.setVisible(true);
         });
     }
 
@@ -189,6 +219,13 @@ public class MapEditorManager {
             int mSize = markerGroup.getChildren().size();
             if (mSize > 0) {
                 markerGroup.getChildren().remove(mSize - 1);
+            }
+
+            if (currentPoints.isEmpty()) {
+                guideLine.setVisible(false);
+            } else {
+                guideLine.setStartX(currentPoints.get(currentPoints.size() - 2));
+                guideLine.setStartY(currentPoints.get(currentPoints.size() - 1));
             }
 
             updateButtonStates();
@@ -217,6 +254,7 @@ public class MapEditorManager {
             modeBtn.setText("Mode: PAN");
             modeBtn.setStyle("-fx-background-color: #f1f3f4; -fx-cursor: hand; -fx-font-weight: bold;");
             polygonLayer.setCursor(javafx.scene.Cursor.DEFAULT);
+            guideLine.setVisible(false);
         }
     }
 
@@ -257,6 +295,7 @@ public class MapEditorManager {
         currentPoints.clear();
         previewPolygon.getPoints().clear();
         markerGroup.getChildren().clear();
+        guideLine.setVisible(false);
         updateButtonStates();
     }
 
