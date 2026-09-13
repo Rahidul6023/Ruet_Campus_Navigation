@@ -16,6 +16,7 @@ import javafx.scene.shape.SVGPath;
 public class MapActionButtons {
 
     private final HBox container;
+    private final StackPane adminBtn;
 
     public MapActionButtons() {
         // --- 1. Settings Icon Button ---
@@ -36,7 +37,7 @@ public class MapActionButtons {
         adminIcon.setScaleX(1.0);
         adminIcon.setScaleY(1.0);
 
-        StackPane adminBtn = createCircularButton(adminIcon, "Admin Panel");
+        adminBtn = createCircularButton(adminIcon, "Admin Panel");
 
         // --- 3. Container setup (aligned top-right) ---
         container = new HBox(12, settingsBtn, adminBtn);
@@ -97,6 +98,15 @@ public class MapActionButtons {
         });
 
         return button;
+    }
+    
+
+    public void setOnAdminAction(Runnable action) {
+        adminBtn.setOnMouseClicked(e -> {
+            if (action != null) {
+                action.run();
+            }
+        });
     }
 
     public HBox getContainer() {

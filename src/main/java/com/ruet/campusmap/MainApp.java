@@ -12,6 +12,8 @@ import javafx.scene.web.WebView;
 import javafx.scene.Group;
 import javafx.scene.paint.Color;
 import javafx.scene.shape.Polygon;
+import com.ruet.campusmap.editor.AdminLoginDialog;
+import com.ruet.campusmap.editor.MapEditorManager;
 
 
 public class MainApp extends Application {
@@ -70,9 +72,15 @@ public class MainApp extends Application {
 
         root.getChildren().addAll(searchBar.getContainer(), actionButtons.getContainer(), bottomControls.getContainer());
 
+        // Modular Map Editor Manager
+        MapEditorManager editorManager = new MapEditorManager(root, polygonLayer);
 
-
-
+        // When Admin Button is clicked -> Show password modal -> Activate editor on success
+        actionButtons.setOnAdminAction(() -> {
+            AdminLoginDialog.show(stage, () -> {
+                editorManager.activate();
+            });
+        });
 
         // Map Panning
         root.setOnMousePressed(event -> {
@@ -81,22 +89,25 @@ public class MainApp extends Application {
         });
 
         root.setOnMouseDragged(event -> {
-            double deltaX = event.getSceneX() - lastMouseX;
-            double deltaY = event.getSceneY() - lastMouseY;
-        double newX = mapGroup.getTranslateX() + deltaX;
-        double newY = mapGroup.getTranslateY() + deltaY;
-        double viewWidth = root.getWidth();
-        double viewHeight = root.getHeight();
-        double minX = -(mapWidth-viewWidth) -400;
-        double maxX = 400;
-        double minY = -(mapHeight - viewHeight) -400;
-        double maxY = 400;
+            // Only pan if NOT in draw mode or if dragging with right-click
+            if (!editorManager.isDrawMode() || event.isSecondaryButtonDown()) {
+                double deltaX = event.getSceneX() - lastMouseX;
+                double deltaY = event.getSceneY() - lastMouseY;
+                double newX = mapGroup.getTranslateX() + deltaX;
+                double newY = mapGroup.getTranslateY() + deltaY;
+                double viewWidth = root.getWidth();
+                double viewHeight = root.getHeight();
+                double minX = -(mapWidth-viewWidth) -400;
+                double maxX = 400;
+                double minY = -(mapHeight - viewHeight) -400;
+                double maxY = 400;
 
-        mapGroup.setTranslateX(Math.max(minX,Math.min(maxX,newX)));
-        mapGroup.setTranslateY(Math.max(minY,Math.min(maxY,newY)));
+                mapGroup.setTranslateX(Math.max(minX,Math.min(maxX,newX)));
+                mapGroup.setTranslateY(Math.max(minY,Math.min(maxY,newY)));
+            }
 
-        lastMouseX = event.getSceneX();
-        lastMouseY = event.getSceneY();
+            lastMouseX = event.getSceneX();
+            lastMouseY = event.getSceneY();
         });
 
         // Map Zooming
