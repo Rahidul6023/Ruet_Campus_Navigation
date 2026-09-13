@@ -13,6 +13,7 @@ import javafx.scene.input.MouseButton;
 import javafx.scene.layout.HBox;
 import javafx.scene.layout.Pane;
 import javafx.scene.layout.StackPane;
+import javafx.scene.layout.VBox;
 import javafx.scene.paint.Color;
 import javafx.scene.shape.Circle;
 import javafx.scene.shape.Polygon;
@@ -268,25 +269,15 @@ public class MapEditorManager {
     private void finishCurrentPolygon() {
         if (currentPoints.size() < 6) return;
 
-        // Prompt user for Building Name
-        TextInputDialog nameDialog = new TextInputDialog("New Building");
-        nameDialog.setTitle("Building Information");
-        nameDialog.setHeaderText("Polygon completed!");
-        nameDialog.setContentText("Enter Building / Location Name:");
+        // Convert Flat List<Double> to List<double[]>
+        List<double[]> pointList = new ArrayList<>();
+        for (int i = 0; i < currentPoints.size(); i += 2) {
+            pointList.add(new double[]{currentPoints.get(i), currentPoints.get(i + 1)});
+        }
 
-        Optional<String> result = nameDialog.showAndWait();
-        if (result.isPresent() && !result.get().trim().isEmpty()) {
-            String name = result.get().trim();
-            String defaultColor = "#3498DB";
-
-            // Convert Flat List<Double> to List<double[]>
-            List<double[]> pointList = new ArrayList<>();
-            for (int i = 0; i < currentPoints.size(); i += 2) {
-                pointList.add(new double[]{currentPoints.get(i), currentPoints.get(i + 1)});
-            }
-
-            // Create Data Model
-            BuildingPolygon bp = new BuildingPolygon(name, defaultColor, pointList);
+        Optional<BuildingPolygon> result = promptNewBuildingInfo(pointList);
+        if (result.isPresent()) {
+            BuildingPolygon bp = result.get();
             savedBuildings.add(bp);
 
             // Create Visual JavaFX Polygon on the map using PolygonDataLoader
@@ -298,6 +289,50 @@ public class MapEditorManager {
             // Reset drawing state for next polygon
             resetDrawingState();
         }
+    }
+
+    private Optional<BuildingPolygon> promptNewBuildingInfo(List<double[]> points) {
+        Dialog<BuildingPolygon> dialog = new Dialog<>();
+        dialog.setTitle("New Building Information");
+        dialog.setHeaderText("Polygon completed! Enter details:");
+
+        ButtonType finishButtonType = new ButtonType("Add to Map", ButtonBar.ButtonData.OK_DONE);
+        dialog.getDialogPane().getButtonTypes().addAll(finishButtonType, ButtonType.CANCEL);
+
+        VBox content = new VBox(10);
+        content.setPadding(new Insets(16));
+
+        Label nameLabel = new Label("Building / Location Name:");
+        nameLabel.setStyle("-fx-font-size: 12px; -fx-text-fill: #5f6368;");
+
+        TextField nameField = new TextField("New Building");
+        nameField.setPromptText("e.g. CSE Department");
+
+        Label colorLabel = new Label("Polygon Color:");
+        colorLabel.setStyle("-fx-font-size: 12px; -fx-text-fill: #5f6368;");
+
+        ColorPicker colorPicker = new ColorPicker(Color.web("#3498DB"));
+        colorPicker.setMaxWidth(Double.MAX_VALUE);
+
+        content.getChildren().addAll(nameLabel, nameField, colorLabel, colorPicker);
+        dialog.getDialogPane().setContent(content);
+
+        dialog.setResultConverter(dialogButton -> {
+            if (dialogButton == finishButtonType) {
+                String name = nameField.getText().trim();
+                if (name.isEmpty()) name = "New Building";
+                Color c = colorPicker.getValue();
+                String hex = String.format("#%02X%02X%02X",
+                    (int)(c.getRed() * 255),
+                    (int)(c.getGreen() * 255),
+                    (int)(c.getBlue() * 255)
+                );
+                return new BuildingPolygon(name, hex, points);
+            }
+            return null;
+        });
+
+        return dialog.showAndWait();
     }
 
     public void handlePolygonClick(BuildingPolygon bp, Polygon poly) {
