@@ -50,6 +50,10 @@ public class MapEditorManager {
         this.root = root;
         this.polygonLayer = polygonLayer;
 
+        // Load existing saved buildings so subsequent saves don't overwrite them
+        List<BuildingPolygon> existing = com.ruet.campusmap.service.PolygonDataLoader.loadBuildingPolygons();
+        savedBuildings.addAll(existing);
+
         setupPreviewLayer();
         setupToolbar();
         setupMouseListeners();

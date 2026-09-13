@@ -12,8 +12,11 @@ import javafx.scene.web.WebView;
 import javafx.scene.Group;
 import javafx.scene.paint.Color;
 import javafx.scene.shape.Polygon;
+import java.util.List;
 import com.ruet.campusmap.editor.AdminLoginDialog;
 import com.ruet.campusmap.editor.MapEditorManager;
+import com.ruet.campusmap.model.BuildingPolygon;
+import com.ruet.campusmap.service.PolygonDataLoader;
 
 
 public class MainApp extends Application {
@@ -56,6 +59,12 @@ public class MainApp extends Application {
         // Creating Polygon layer
         Pane polygonLayer = new Pane();
         polygonLayer.setPrefSize(mapWidth, mapHeight);
+
+        // Load and display all saved building polygons from campus.json
+        List<com.ruet.campusmap.model.BuildingPolygon> initialBuildings = com.ruet.campusmap.service.PolygonDataLoader.loadBuildingPolygons();
+        for (com.ruet.campusmap.model.BuildingPolygon bp : initialBuildings) {
+            polygonLayer.getChildren().add(com.ruet.campusmap.service.PolygonDataLoader.createJavaFXPolygon(bp));
+        }
 
         Group mapGroup = new Group(campusView,polygonLayer);
 
