@@ -317,7 +317,25 @@ public class MapEditorManager {
     }
 
     private void openEditBuildingDialog(BuildingPolygon bp, Polygon poly) {
-        // Will show dialog
+        EditBuildingDialog.show(
+            bp,
+            (newName, newColor) -> {
+                bp.setName(newName);
+                bp.setColor(newColor);
+
+                // Update visual polygon style and tooltip
+                com.ruet.campusmap.service.PolygonDataLoader.applyPolygonStyle(poly, newColor);
+                Tooltip.install(poly, new Tooltip(newName));
+
+                if (onBuildingSelect != null) {
+                    onBuildingSelect.accept(bp);
+                }
+            },
+            () -> {
+                savedBuildings.remove(bp);
+                polygonLayer.getChildren().remove(poly);
+            }
+        );
     }
 
     private void resetDrawingState() {
