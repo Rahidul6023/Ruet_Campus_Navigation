@@ -174,14 +174,8 @@ public class MapEditorManager {
             BuildingPolygon bp = new BuildingPolygon(name, defaultColor, pointList);
             savedBuildings.add(bp);
 
-            // Create Visual JavaFX Polygon on the map
-            Polygon finalPoly = new Polygon();
-            finalPoly.getPoints().addAll(currentPoints);
-            finalPoly.setFill(Color.web(defaultColor, 0.45));
-            finalPoly.setStroke(Color.web(defaultColor));
-            finalPoly.setStrokeWidth(2.5);
-
-            Tooltip.install(finalPoly, new Tooltip(name));
+            // Create Visual JavaFX Polygon on the map using PolygonDataLoader
+            Polygon finalPoly = com.ruet.campusmap.service.PolygonDataLoader.createJavaFXPolygon(bp);
             polygonLayer.getChildren().add(finalPoly);
 
             // Reset drawing state for next polygon
