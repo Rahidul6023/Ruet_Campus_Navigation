@@ -75,7 +75,10 @@ public class MainApp extends Application {
 
         StackPane root = new StackPane(mapGroup);
 
-        // Google Maps-style Search Bar (Modular & decoupled)
+        // RUET Campus Brand Badge with Logo SVG (Top-Left)
+        com.ruet.campusmap.view.CampusBrandBadge brandBadge = new com.ruet.campusmap.view.CampusBrandBadge();
+
+        // Google Maps-style Search Bar (Modular & centered at top)
         MapSearchBar searchBar = new MapSearchBar(mapGroup, root);
         
         // Floating Settings & Admin Buttons (Top-Right)
@@ -84,7 +87,13 @@ public class MainApp extends Application {
         // Floating Zoom In/Out & Location Controls (Bottom-Center)
         MapBottomControls bottomControls = new MapBottomControls(mapGroup);
 
-        root.getChildren().addAll(searchBar.getContainer(), actionButtons.getContainer(), bottomControls.getContainer(), buildingInfoCard.getContainer());
+        root.getChildren().addAll(
+            brandBadge.getContainer(),
+            searchBar.getContainer(),
+            actionButtons.getContainer(),
+            bottomControls.getContainer(),
+            buildingInfoCard.getContainer()
+        );
 
         // Modular Map Editor Manager
         MapEditorManager editorManager = new MapEditorManager(root, polygonLayer);

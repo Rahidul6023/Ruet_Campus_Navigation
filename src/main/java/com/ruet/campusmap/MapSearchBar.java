@@ -127,16 +127,16 @@ public class MapSearchBar {
 
         // --- 7. Main Floating Wrapper Container ---
         wrapper = new VBox(searchCard, suggestionListView);
-        wrapper.setMaxSize(380, VBox.USE_PREF_SIZE);
+        wrapper.setMaxSize(420, VBox.USE_PREF_SIZE);
         wrapper.setEffect(new DropShadow(15, 0, 4, Color.rgb(60, 64, 67, 0.28)));
-        wrapper.setPadding(new Insets(18, 0, 0, 18)); // Offset from top & left
+        wrapper.setPadding(new Insets(18, 0, 0, 0)); // Top offset
 
         // Prevent dragging the search bar from moving the campus map underneath
         wrapper.setOnMousePressed(javafx.event.Event::consume);
         wrapper.setOnMouseDragged(javafx.event.Event::consume);
 
-        // Align floating at top-left
-        StackPane.setAlignment(wrapper, Pos.TOP_LEFT);
+        // Align floating at top-center
+        StackPane.setAlignment(wrapper, Pos.TOP_CENTER);
 
         // --- 8. Reactive Event Listeners (Zero setOnClick) ---
         setupTextListener();
