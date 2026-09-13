@@ -46,6 +46,7 @@ public class MapEditorManager {
     private Button modeBtn;
     private Button finishBtn;
     private Button undoBtn;
+    private Button cancelBtn;
 
     public MapEditorManager(StackPane root, Pane polygonLayer) {
         this.root = root;
@@ -58,6 +59,7 @@ public class MapEditorManager {
         setupPreviewLayer();
         setupToolbar();
         setupMouseListeners();
+        setupKeyListeners();
     }
 
     private void setupPreviewLayer() {
@@ -94,6 +96,11 @@ public class MapEditorManager {
         undoBtn.setDisable(true);
         undoBtn.setOnAction(e -> undoLastPoint());
 
+        cancelBtn = new Button("Cancel Drawing");
+        cancelBtn.setStyle("-fx-background-color: #f1f3f4; -fx-cursor: hand;");
+        cancelBtn.setDisable(true);
+        cancelBtn.setOnAction(e -> cancelCurrentDrawing());
+
         finishBtn = new Button("Finish Polygon");
         finishBtn.setStyle("-fx-background-color: #1a73e8; -fx-text-fill: white; -fx-cursor: hand; -fx-font-weight: bold;");
         finishBtn.setDisable(true);
@@ -111,9 +118,24 @@ public class MapEditorManager {
         toolbar.setOnMousePressed(javafx.event.Event::consume);
         toolbar.setOnMouseDragged(javafx.event.Event::consume);
 
-        toolbar.getChildren().addAll(editorBadge, modeBtn, undoBtn, finishBtn, saveBtn, exitBtn);
+        toolbar.getChildren().addAll(editorBadge, modeBtn, undoBtn, cancelBtn, finishBtn, saveBtn, exitBtn);
         StackPane.setAlignment(toolbar, Pos.BOTTOM_CENTER);
         StackPane.setMargin(toolbar, new Insets(0, 0, 30, 0));
+    }
+
+    private void setupKeyListeners() {
+        root.addEventFilter(javafx.scene.input.KeyEvent.KEY_PRESSED, event -> {
+            if (active && isDrawMode && event.getCode() == javafx.scene.input.KeyCode.ESCAPE) {
+                cancelCurrentDrawing();
+                event.consume();
+            }
+        });
+    }
+
+    public void cancelCurrentDrawing() {
+        if (!currentPoints.isEmpty()) {
+            resetDrawingState();
+        }
     }
 
     private void setupMouseListeners() {
@@ -176,6 +198,9 @@ public class MapEditorManager {
     private void updateButtonStates() {
         if (undoBtn != null) {
             undoBtn.setDisable(currentPoints.isEmpty());
+        }
+        if (cancelBtn != null) {
+            cancelBtn.setDisable(currentPoints.isEmpty());
         }
         if (finishBtn != null) {
             finishBtn.setDisable(currentPoints.size() < 6);
