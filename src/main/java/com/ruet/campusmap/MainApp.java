@@ -55,22 +55,9 @@ public class MainApp extends Application {
         Pane polygonLayer = new Pane();
         polygonLayer.setPrefSize(mapWidth, mapHeight);
 
-        // Test Polygon
-        Polygon testPoly = new Polygon(
-            320.0, 450.0,
-            500.0, 450.0,
-            500.0, 580.0,
-            320.0, 580.0
-        );
-        testPoly.setFill(Color.rgb(0,180,255, 0.45));
-        testPoly.setStroke(Color.rgb(0, 180, 255));
-        testPoly.setStrokeWidth(2.5);
-        polygonLayer.getChildren().add(testPoly);
-
         Group mapGroup = new Group(campusView,polygonLayer);
 
-        Label label = new Label("RUET Campus Map");
-        StackPane root = new StackPane(mapGroup, label);
+        StackPane root = new StackPane(mapGroup);
 
         // Google Maps-style Search Bar (Modular & decoupled)
         MapSearchBar searchBar = new MapSearchBar(mapGroup, root);
