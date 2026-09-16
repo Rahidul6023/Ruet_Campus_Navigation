@@ -36,7 +36,7 @@ public class EditBuildingDialog {
 
         TextField nameField = new TextField(model.getName() != null ? model.getName() : "");
         nameField.setPromptText("Enter building name");
-        nameField.setStyle("-fx-font-size: 13px;");
+        nameField.setStyle("-fx-font-size: 3px;");
 
         // Color input
         Label colorLabel = new Label("Polygon Color:");
