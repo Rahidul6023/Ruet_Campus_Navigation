@@ -23,10 +23,16 @@ import javafx.scene.shape.SVGPath;
 public class MapBottomControls {
 
     private final HBox container;
+    private final HBox zoomCard;
+    private final StackPane locationBtn;
+    private final SVGPath zoomInIcon;
+    private final SVGPath zoomOutIcon;
+    private final SVGPath locationIcon;
+    private boolean isDark = false;
 
     public MapBottomControls(Group mapGroup) {
         // ================= 1. ZOOM IN BUTTON (+) =================
-        SVGPath zoomInIcon = new SVGPath();
+        zoomInIcon = new SVGPath();
         zoomInIcon.setContent("M19 13h-6v6h-2v-6H5v-2h6V5h2v6h6v2z");
         zoomInIcon.setFill(Color.web("#5f6368"));
         zoomInIcon.setScaleX(0.85);
@@ -54,7 +60,7 @@ public class MapBottomControls {
         zoomDivider.setMaxHeight(26);
 
         // ================= 2. ZOOM OUT BUTTON (-) =================
-        SVGPath zoomOutIcon = new SVGPath();
+        zoomOutIcon = new SVGPath();
         zoomOutIcon.setContent("M19 13H5v-2h14v2z");
         zoomOutIcon.setFill(Color.web("#5f6368"));
         zoomOutIcon.setScaleX(0.85);
@@ -77,38 +83,23 @@ public class MapBottomControls {
         });
 
         // Combined Zoom Card: Side-by-side (Horizontal HBox)
-        HBox zoomCard = new HBox(zoomInBtn, zoomDivider, zoomOutBtn);
+        zoomCard = new HBox(zoomInBtn, zoomDivider, zoomOutBtn);
         zoomCard.setAlignment(Pos.CENTER);
         zoomCard.setPrefHeight(42);
-        zoomCard.setStyle(
-            "-fx-background-color: #ffffff; " +
-            "-fx-background-radius: 8px; " +
-            "-fx-border-radius: 8px; " +
-            "-fx-border-color: #dadce0; " +
-            "-fx-border-width: 1px;"
-        );
         zoomCard.setEffect(new DropShadow(10, 0, 3, Color.rgb(60, 64, 67, 0.25)));
 
         // ================= 3. MY LOCATION ICON =================
         // Google Maps crosshair / current location target icon
-        SVGPath locationIcon = new SVGPath();
+        locationIcon = new SVGPath();
         locationIcon.setContent("M12 8c-2.21 0-4 1.79-4 4s1.79 4 4 4 4-1.79 4-4-1.79-4-4-4zm8.94 3c-.46-4.17-3.77-7.48-7.94-7.94V1h-2v2.06C6.83 3.52 3.52 6.83 3.06 11H1v2h2.06c.46 4.17 3.77 7.48 7.94 7.94V23h2v-2.06c4.17-.46 7.48-3.77 7.94-7.94H23v-2h-2.06zM12 19c-3.87 0-7-3.13-7-7s3.13-7 7-7 7 3.13 7 7-3.13 7-7 7z");
         locationIcon.setFill(Color.web("#1a73e8")); // Google Blue
         locationIcon.setScaleX(0.95);
         locationIcon.setScaleY(0.95);
 
-        StackPane locationBtn = new StackPane(locationIcon);
+        locationBtn = new StackPane(locationIcon);
         locationBtn.setPrefSize(42, 42);
         locationBtn.setMinSize(42, 42);
         locationBtn.setMaxSize(42, 42);
-        locationBtn.setStyle(
-            "-fx-background-color: #ffffff; " +
-            "-fx-background-radius: 8px; " +
-            "-fx-border-radius: 8px; " +
-            "-fx-border-color: #dadce0; " +
-            "-fx-border-width: 1px; " +
-            "-fx-cursor: hand;"
-        );
         locationBtn.setEffect(new DropShadow(10, 0, 3, Color.rgb(60, 64, 67, 0.25)));
         Tooltip.install(locationBtn, new Tooltip("My Location"));
 
@@ -125,6 +116,51 @@ public class MapBottomControls {
 
         // Position floating at bottom-center
         StackPane.setAlignment(container, Pos.BOTTOM_CENTER);
+
+        applyTheme(false);
+    }
+
+    public void applyTheme(boolean isDark) {
+        this.isDark = isDark;
+        if (isDark) {
+            zoomCard.setStyle(
+                "-fx-background-color: #202124; " +
+                "-fx-background-radius: 8px; " +
+                "-fx-border-radius: 8px; " +
+                "-fx-border-color: #3c4043; " +
+                "-fx-border-width: 1px;"
+            );
+            locationBtn.setStyle(
+                "-fx-background-color: #202124; " +
+                "-fx-background-radius: 8px; " +
+                "-fx-border-radius: 8px; " +
+                "-fx-border-color: #3c4043; " +
+                "-fx-border-width: 1px; " +
+                "-fx-cursor: hand;"
+            );
+            zoomInIcon.setFill(Color.web("#bdc1c6"));
+            zoomOutIcon.setFill(Color.web("#bdc1c6"));
+            locationIcon.setFill(Color.web("#8ab4f8"));
+        } else {
+            zoomCard.setStyle(
+                "-fx-background-color: #ffffff; " +
+                "-fx-background-radius: 8px; " +
+                "-fx-border-radius: 8px; " +
+                "-fx-border-color: #dadce0; " +
+                "-fx-border-width: 1px;"
+            );
+            locationBtn.setStyle(
+                "-fx-background-color: #ffffff; " +
+                "-fx-background-radius: 8px; " +
+                "-fx-border-radius: 8px; " +
+                "-fx-border-color: #dadce0; " +
+                "-fx-border-width: 1px; " +
+                "-fx-cursor: hand;"
+            );
+            zoomInIcon.setFill(Color.web("#5f6368"));
+            zoomOutIcon.setFill(Color.web("#5f6368"));
+            locationIcon.setFill(Color.web("#1a73e8"));
+        }
     }
 
     public HBox getContainer() {
