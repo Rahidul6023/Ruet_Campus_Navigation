@@ -189,6 +189,15 @@ public class MapBottomControls {
             targetTx = currentTx - (afterScene.getX() - cx);
             targetTy = currentTy - (afterScene.getY() - cy);
 
+            // Clamp targetTx and targetTy to prevent scrolling into void
+            double vw = mapGroup.getScene().getWidth();
+            double vh = mapGroup.getScene().getHeight();
+            double halfExcessX = Math.max(0.0, (1000.0 * targetScale - vw) / 2.0);
+            double halfExcessY = Math.max(0.0, (1000.0 * targetScale - vh) / 2.0);
+            double margin = 200.0;
+            targetTx = Math.max(-halfExcessX - margin, Math.min(halfExcessX + margin, targetTx));
+            targetTy = Math.max(-halfExcessY - margin, Math.min(halfExcessY + margin, targetTy));
+
             mapGroup.setScaleX(currentScale);
             mapGroup.setScaleY(currentScale);
         }
@@ -205,10 +214,19 @@ public class MapBottomControls {
     }
 
     private void resetToCenter(Group mapGroup) {
+        double fitScale = 1.0;
+        if (mapGroup.getScene() != null) {
+            double vw = mapGroup.getScene().getWidth();
+            double vh = mapGroup.getScene().getHeight();
+            if (vw > 0 && vh > 0) {
+                fitScale = Math.min((vw - 140) / 1000.0, (vh - 160) / 1000.0);
+                fitScale = Math.max(0.5, Math.min(fitScale, 1.4));
+            }
+        }
         Timeline timeline = new Timeline(
             new KeyFrame(Duration.millis(350),
-                new KeyValue(mapGroup.scaleXProperty(), 1.0, Interpolator.EASE_OUT),
-                new KeyValue(mapGroup.scaleYProperty(), 1.0, Interpolator.EASE_OUT),
+                new KeyValue(mapGroup.scaleXProperty(), fitScale, Interpolator.EASE_OUT),
+                new KeyValue(mapGroup.scaleYProperty(), fitScale, Interpolator.EASE_OUT),
                 new KeyValue(mapGroup.translateXProperty(), 0.0, Interpolator.EASE_OUT),
                 new KeyValue(mapGroup.translateYProperty(), 0.0, Interpolator.EASE_OUT)
             )

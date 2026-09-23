@@ -15,6 +15,7 @@ import javafx.animation.KeyFrame;
 import javafx.animation.KeyValue;
 import javafx.animation.Timeline;
 import javafx.application.Application;
+import javafx.application.Platform;
 import javafx.geometry.Point2D;
 import javafx.scene.Cursor;
 import javafx.scene.Group;
@@ -23,6 +24,7 @@ import javafx.scene.input.KeyCode;
 import javafx.scene.input.MouseButton;
 import javafx.scene.layout.Pane;
 import javafx.scene.layout.StackPane;
+import javafx.scene.paint.Color;
 import javafx.scene.web.WebView;
 import javafx.stage.Stage;
 import javafx.util.Duration;
@@ -41,18 +43,23 @@ public class MainApp extends Application {
     public void start(Stage stage) {
         String svgUrl = getClass().getResource("/maps/in.svg").toExternalForm();
 
-        double mapWidth = 2000;
-        double mapHeight = 1300;
+        double mapWidth = 1000;
+        double mapHeight = 1000;
 
         // Settings Model
         AppSettings settings = new AppSettings();
 
         // SVG Map Integration
         WebView campusView = new WebView();
+        campusView.setPageFill(Color.TRANSPARENT);
         campusView.getEngine().load(svgUrl);
+        String mapCss = "* { margin: 0; padding: 0; box-sizing: border-box; } " +
+                        "html, body { margin: 0 !important; padding: 0 !important; width: 100% !important; height: 100% !important; overflow: hidden !important; background: transparent !important; } " +
+                        "::-webkit-scrollbar { display: none !important; width: 0 !important; height: 0 !important; } " +
+                        "svg { width: 1000px !important; height: 1000px !important; display: block !important; }";
         campusView.getEngine().setUserStyleSheetLocation(
             "data:text/css;charset=utf-8," + 
-            URLEncoder.encode("::-webkit-scrollbar { display: none !important; width: 0 !important; height: 0 !important; }", StandardCharsets.UTF_8)
+            URLEncoder.encode(mapCss, StandardCharsets.UTF_8)
         );
         campusView.getChildrenUnmodifiable().addListener((javafx.collections.ListChangeListener<javafx.scene.Node>) change -> {
             for (javafx.scene.Node node : campusView.lookupAll(".scroll-bar")) {
@@ -61,7 +68,7 @@ public class MainApp extends Application {
             }
         });
 
-        // Map Size Defining
+        // Map Size Defining (Matches 1000x1000 SVG canvas)
         campusView.setPrefSize(mapWidth, mapHeight);
         campusView.setMinSize(mapWidth, mapHeight);
         campusView.setMaxSize(mapWidth, mapHeight);
@@ -70,6 +77,8 @@ public class MainApp extends Application {
         // Creating Polygon layer
         Pane polygonLayer = new Pane();
         polygonLayer.setPrefSize(mapWidth, mapHeight);
+        polygonLayer.setMinSize(mapWidth, mapHeight);
+        polygonLayer.setMaxSize(mapWidth, mapHeight);
 
         // Modern floating building info card (Bottom-Left)
         BuildingInfoCard buildingInfoCard = new BuildingInfoCard();
@@ -160,18 +169,18 @@ public class MainApp extends Application {
         Runnable applyThemeState = () -> {
             boolean isDark = settings.isEffectiveDarkMode();
 
-            root.setStyle(isDark ? "-fx-background-color: #121214;" : "-fx-background-color: #f1f3f4;");
+            root.setStyle(isDark ? "-fx-background-color: #1a1d24;" : "-fx-background-color: #aad3df;");
 
             try {
                 if (isDark) {
                     campusView.getEngine().executeScript(
                         "document.documentElement.style.filter = 'invert(0.92) hue-rotate(180deg) brightness(0.9) contrast(1.15) saturate(1.2)';" +
-                        "document.body.style.backgroundColor = '#18191c';"
+                        "document.body.style.backgroundColor = 'transparent';"
                     );
                 } else {
                     campusView.getEngine().executeScript(
                         "document.documentElement.style.filter = 'none';" +
-                        "document.body.style.backgroundColor = '#ffffff';"
+                        "document.body.style.backgroundColor = 'transparent';"
                     );
                 }
             } catch (Exception ignored) {}
@@ -194,6 +203,53 @@ public class MainApp extends Application {
             if (newState == javafx.concurrent.Worker.State.SUCCEEDED) {
                 campusView.getEngine().executeScript("document.body.style.overflow='hidden'");
                 applyThemeState.run();
+            }
+        });
+
+        // Clamps map position so it can NEVER be dragged away off-screen into empty void
+        Runnable clampMapPosition = () -> {
+            double viewWidth = root.getWidth();
+            double viewHeight = root.getHeight();
+            if (viewWidth <= 0 || viewHeight <= 0) return;
+
+            double scale = mapGroup.getScaleX();
+            double scaledWidth = mapWidth * scale;
+            double scaledHeight = mapHeight * scale;
+
+            double halfExcessX = Math.max(0.0, (scaledWidth - viewWidth) / 2.0);
+            double halfExcessY = Math.max(0.0, (scaledHeight - viewHeight) / 2.0);
+            double margin = 200.0;
+
+            double minTx = -halfExcessX - margin;
+            double maxTx = halfExcessX + margin;
+            double minTy = -halfExcessY - margin;
+            double maxTy = halfExcessY + margin;
+
+            double clampedX = Math.max(minTx, Math.min(maxTx, mapGroup.getTranslateX()));
+            double clampedY = Math.max(minTy, Math.min(maxTy, mapGroup.getTranslateY()));
+
+            mapGroup.setTranslateX(clampedX);
+            mapGroup.setTranslateY(clampedY);
+        };
+
+        // Auto-fit map to window size so opening feels like authentic Google Maps
+        Runnable centerAndFitMap = () -> {
+            double viewWidth = root.getWidth();
+            double viewHeight = root.getHeight();
+            if (viewWidth <= 0 || viewHeight <= 0) return;
+
+            double fitScale = Math.min((viewWidth - 140) / mapWidth, (viewHeight - 160) / mapHeight);
+            fitScale = Math.max(0.5, Math.min(fitScale, 1.4));
+
+            mapGroup.setScaleX(fitScale);
+            mapGroup.setScaleY(fitScale);
+            mapGroup.setTranslateX(0);
+            mapGroup.setTranslateY(0);
+        };
+
+        root.widthProperty().addListener((obs, oldVal, newVal) -> {
+            if (oldVal.doubleValue() == 0 && newVal.doubleValue() > 0) {
+                Platform.runLater(centerAndFitMap);
             }
         });
 
@@ -221,32 +277,29 @@ public class MainApp extends Application {
             if (!editorManager.isDrawMode() || event.isSecondaryButtonDown()) {
                 double deltaX = event.getSceneX() - lastMouseX;
                 double deltaY = event.getSceneY() - lastMouseY;
-                double newX = mapGroup.getTranslateX() + deltaX;
-                double newY = mapGroup.getTranslateY() + deltaY;
-                double viewWidth = root.getWidth();
-                double viewHeight = root.getHeight();
-                double currentScale = mapGroup.getScaleX();
-                double extraMargin = 500 * currentScale;
-                double minX = -(mapWidth * currentScale - viewWidth) - extraMargin;
-                double maxX = extraMargin;
-                double minY = -(mapHeight * currentScale - viewHeight) - extraMargin;
-                double maxY = extraMargin;
-
-                mapGroup.setTranslateX(Math.max(minX, Math.min(maxX, newX)));
-                mapGroup.setTranslateY(Math.max(minY, Math.min(maxY, newY)));
+                mapGroup.setTranslateX(mapGroup.getTranslateX() + deltaX);
+                mapGroup.setTranslateY(mapGroup.getTranslateY() + deltaY);
+                clampMapPosition.run();
             }
 
             lastMouseX = event.getSceneX();
             lastMouseY = event.getSceneY();
         });
 
-        // Smooth cursor-centered focal zooming
+        // Smooth cursor-centered focal zooming with boundary clamping
         root.setOnScroll(event -> {
             double zoomFactor = (event.getDeltaY() > 0) ? 1.12 : 0.88;
             double currentScale = mapGroup.getScaleX();
             double newScale = currentScale * zoomFactor;
 
-            if (newScale >= 0.35 && newScale <= 5.0) {
+            double fitScale = 1.0;
+            if (root.getWidth() > 0 && root.getHeight() > 0) {
+                fitScale = Math.min((root.getWidth() - 140) / mapWidth, (root.getHeight() - 160) / mapHeight);
+            }
+            double minScale = Math.max(0.4, fitScale * 0.7);
+            double maxScale = Math.min(4.5, fitScale * 4.0);
+
+            if (newScale >= minScale && newScale <= maxScale) {
                 Point2D mouseScene = new Point2D(event.getSceneX(), event.getSceneY());
                 Point2D mouseLocal = mapGroup.sceneToLocal(mouseScene);
 
@@ -256,6 +309,8 @@ public class MainApp extends Application {
                 Point2D afterScene = mapGroup.localToScene(mouseLocal);
                 mapGroup.setTranslateX(mapGroup.getTranslateX() - (afterScene.getX() - mouseScene.getX()));
                 mapGroup.setTranslateY(mapGroup.getTranslateY() - (afterScene.getY() - mouseScene.getY()));
+
+                clampMapPosition.run();
             }
 
             event.consume();
@@ -265,7 +320,7 @@ public class MainApp extends Application {
         root.setOnMouseClicked(event -> {
             if (event.getClickCount() == 2 && event.getButton() == MouseButton.PRIMARY && !editorManager.isDrawMode()) {
                 double currentScale = mapGroup.getScaleX();
-                double targetScale = Math.min(5.0, currentScale * 1.5);
+                double targetScale = Math.min(4.0, currentScale * 1.5);
                 if (targetScale != currentScale) {
                     Point2D mouseScene = new Point2D(event.getSceneX(), event.getSceneY());
                     Point2D mouseLocal = mapGroup.sceneToLocal(mouseScene);
@@ -275,6 +330,16 @@ public class MainApp extends Application {
                     Point2D afterScene = mapGroup.localToScene(mouseLocal);
                     double targetTx = mapGroup.getTranslateX() - (afterScene.getX() - mouseScene.getX());
                     double targetTy = mapGroup.getTranslateY() - (afterScene.getY() - mouseScene.getY());
+
+                    double viewWidth = root.getWidth();
+                    double viewHeight = root.getHeight();
+                    double scaledWidth = mapWidth * targetScale;
+                    double scaledHeight = mapHeight * targetScale;
+                    double halfExcessX = Math.max(0.0, (scaledWidth - viewWidth) / 2.0);
+                    double halfExcessY = Math.max(0.0, (scaledHeight - viewHeight) / 2.0);
+                    double margin = 200.0;
+                    targetTx = Math.max(-halfExcessX - margin, Math.min(halfExcessX + margin, targetTx));
+                    targetTy = Math.max(-halfExcessY - margin, Math.min(halfExcessY + margin, targetTy));
 
                     mapGroup.setScaleX(currentScale);
                     mapGroup.setScaleY(currentScale);
@@ -309,8 +374,9 @@ public class MainApp extends Application {
         stage.setMaximized(true);
         stage.show();
 
-        // Initial theme application
+        // Initial theme application and center fit
         applyThemeState.run();
+        Platform.runLater(centerAndFitMap);
     }
 
     public static void main(String[] args) {

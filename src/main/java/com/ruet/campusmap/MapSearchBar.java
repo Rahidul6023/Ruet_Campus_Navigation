@@ -286,8 +286,16 @@ public class MapSearchBar {
         double viewWidth = rootPane.getWidth();
         double viewHeight = rootPane.getHeight();
 
-        double targetTx = (viewWidth / 2.0) - (targetX * targetScale);
-        double targetTy = (viewHeight / 2.0) - (targetY * targetScale);
+        double targetTx = (500.0 - targetX) * targetScale;
+        double targetTy = (500.0 - targetY) * targetScale;
+
+        double scaledWidth = 1000.0 * targetScale;
+        double scaledHeight = 1000.0 * targetScale;
+        double halfExcessX = Math.max(0.0, (scaledWidth - viewWidth) / 2.0);
+        double halfExcessY = Math.max(0.0, (scaledHeight - viewHeight) / 2.0);
+        double margin = 200.0;
+        targetTx = Math.max(-halfExcessX - margin, Math.min(halfExcessX + margin, targetTx));
+        targetTy = Math.max(-halfExcessY - margin, Math.min(halfExcessY + margin, targetTy));
 
         Timeline flyToAnim = new Timeline(
             new KeyFrame(Duration.millis(450),
