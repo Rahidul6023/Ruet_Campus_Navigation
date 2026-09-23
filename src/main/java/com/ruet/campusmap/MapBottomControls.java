@@ -1,7 +1,12 @@
 package com.ruet.campusmap;
 
+import javafx.animation.Interpolator;
+import javafx.animation.KeyFrame;
+import javafx.animation.KeyValue;
+import javafx.animation.Timeline;
 import javafx.geometry.Insets;
 import javafx.geometry.Orientation;
+import javafx.geometry.Point2D;
 import javafx.geometry.Pos;
 import javafx.scene.Group;
 import javafx.scene.control.Separator;
@@ -11,6 +16,7 @@ import javafx.scene.layout.HBox;
 import javafx.scene.layout.StackPane;
 import javafx.scene.paint.Color;
 import javafx.scene.shape.SVGPath;
+import javafx.util.Duration;
 
 /**
  * Floating bottom-center map navigation controls:
@@ -45,13 +51,9 @@ public class MapBottomControls {
         zoomInBtn.setStyle("-fx-cursor: hand; -fx-background-color: transparent;");
         Tooltip.install(zoomInBtn, new Tooltip("Zoom In"));
 
-        // Zoom In action (via mouse pressed, no setOnClick)
+        // Zoom In action with smooth animation
         zoomInBtn.setOnMousePressed(e -> {
-            double newScale = mapGroup.getScaleX() * 1.2;
-            if (newScale <= 4.0) {
-                mapGroup.setScaleX(newScale);
-                mapGroup.setScaleY(newScale);
-            }
+            animateZoom(mapGroup, 1.25);
         });
 
         // Vertical divider between + and - side-by-side
@@ -73,13 +75,9 @@ public class MapBottomControls {
         zoomOutBtn.setStyle("-fx-cursor: hand; -fx-background-color: transparent;");
         Tooltip.install(zoomOutBtn, new Tooltip("Zoom Out"));
 
-        // Zoom Out action (via mouse pressed, no setOnClick)
+        // Zoom Out action with smooth animation
         zoomOutBtn.setOnMousePressed(e -> {
-            double newScale = mapGroup.getScaleX() * 0.8;
-            if (newScale >= 0.5) {
-                mapGroup.setScaleX(newScale);
-                mapGroup.setScaleY(newScale);
-            }
+            animateZoom(mapGroup, 0.8);
         });
 
         // Combined Zoom Card: Side-by-side (Horizontal HBox)
@@ -101,7 +99,8 @@ public class MapBottomControls {
         locationBtn.setMinSize(42, 42);
         locationBtn.setMaxSize(42, 42);
         locationBtn.setEffect(new DropShadow(10, 0, 3, Color.rgb(60, 64, 67, 0.25)));
-        Tooltip.install(locationBtn, new Tooltip("My Location"));
+        Tooltip.install(locationBtn, new Tooltip("Recenter Map (Default View)"));
+        locationBtn.setOnMousePressed(e -> resetToCenter(mapGroup));
 
         // ================= 4. MAIN BOTTOM-CENTER CONTAINER =================
         // Arranged side-by-side: [My Location] [ + | - ]
@@ -165,5 +164,55 @@ public class MapBottomControls {
 
     public HBox getContainer() {
         return container;
+    }
+
+    private void animateZoom(Group mapGroup, double factor) {
+        double currentScale = mapGroup.getScaleX();
+        double targetScale = currentScale * factor;
+        targetScale = Math.max(0.4, Math.min(targetScale, 4.5));
+        if (Math.abs(targetScale - currentScale) < 0.001) return;
+
+        double currentTx = mapGroup.getTranslateX();
+        double currentTy = mapGroup.getTranslateY();
+        double targetTx = currentTx;
+        double targetTy = currentTy;
+
+        if (mapGroup.getScene() != null) {
+            double cx = mapGroup.getScene().getWidth() / 2.0;
+            double cy = mapGroup.getScene().getHeight() / 2.0;
+            Point2D centerScene = new Point2D(cx, cy);
+            Point2D centerLocal = mapGroup.sceneToLocal(centerScene);
+
+            mapGroup.setScaleX(targetScale);
+            mapGroup.setScaleY(targetScale);
+            Point2D afterScene = mapGroup.localToScene(centerLocal);
+            targetTx = currentTx - (afterScene.getX() - cx);
+            targetTy = currentTy - (afterScene.getY() - cy);
+
+            mapGroup.setScaleX(currentScale);
+            mapGroup.setScaleY(currentScale);
+        }
+
+        Timeline timeline = new Timeline(
+            new KeyFrame(Duration.millis(250),
+                new KeyValue(mapGroup.scaleXProperty(), targetScale, Interpolator.EASE_OUT),
+                new KeyValue(mapGroup.scaleYProperty(), targetScale, Interpolator.EASE_OUT),
+                new KeyValue(mapGroup.translateXProperty(), targetTx, Interpolator.EASE_OUT),
+                new KeyValue(mapGroup.translateYProperty(), targetTy, Interpolator.EASE_OUT)
+            )
+        );
+        timeline.play();
+    }
+
+    private void resetToCenter(Group mapGroup) {
+        Timeline timeline = new Timeline(
+            new KeyFrame(Duration.millis(350),
+                new KeyValue(mapGroup.scaleXProperty(), 1.0, Interpolator.EASE_OUT),
+                new KeyValue(mapGroup.scaleYProperty(), 1.0, Interpolator.EASE_OUT),
+                new KeyValue(mapGroup.translateXProperty(), 0.0, Interpolator.EASE_OUT),
+                new KeyValue(mapGroup.translateYProperty(), 0.0, Interpolator.EASE_OUT)
+            )
+        );
+        timeline.play();
     }
 }

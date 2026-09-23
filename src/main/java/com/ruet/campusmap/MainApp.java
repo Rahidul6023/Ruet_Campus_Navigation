@@ -10,14 +10,22 @@ import com.ruet.campusmap.view.BuildingLabelsLayer;
 import com.ruet.campusmap.view.CampusBrandBadge;
 import com.ruet.campusmap.view.MapPoiLayer;
 import com.ruet.campusmap.view.SettingsCard;
+import javafx.animation.Interpolator;
+import javafx.animation.KeyFrame;
+import javafx.animation.KeyValue;
+import javafx.animation.Timeline;
 import javafx.application.Application;
+import javafx.geometry.Point2D;
+import javafx.scene.Cursor;
 import javafx.scene.Group;
 import javafx.scene.Scene;
 import javafx.scene.input.KeyCode;
+import javafx.scene.input.MouseButton;
 import javafx.scene.layout.Pane;
 import javafx.scene.layout.StackPane;
 import javafx.scene.web.WebView;
 import javafx.stage.Stage;
+import javafx.util.Duration;
 
 import java.net.URLEncoder;
 import java.nio.charset.StandardCharsets;
@@ -194,8 +202,17 @@ public class MainApp extends Application {
                 settingsCard.hide();
                 actionButtons.setSettingsActive(false);
             }
+            if (!editorManager.isDrawMode() || event.isSecondaryButtonDown()) {
+                root.setCursor(Cursor.CLOSED_HAND);
+            }
             lastMouseX = event.getSceneX();
             lastMouseY = event.getSceneY();
+        });
+
+        root.setOnMouseReleased(event -> {
+            if (!editorManager.isDrawMode()) {
+                root.setCursor(Cursor.DEFAULT);
+            }
         });
 
         root.setOnMouseDragged(event -> {
@@ -207,10 +224,12 @@ public class MainApp extends Application {
                 double newY = mapGroup.getTranslateY() + deltaY;
                 double viewWidth = root.getWidth();
                 double viewHeight = root.getHeight();
-                double minX = -(mapWidth - viewWidth) - 400;
-                double maxX = 400;
-                double minY = -(mapHeight - viewHeight) - 400;
-                double maxY = 400;
+                double currentScale = mapGroup.getScaleX();
+                double extraMargin = 500 * currentScale;
+                double minX = -(mapWidth * currentScale - viewWidth) - extraMargin;
+                double maxX = extraMargin;
+                double minY = -(mapHeight * currentScale - viewHeight) - extraMargin;
+                double maxY = extraMargin;
 
                 mapGroup.setTranslateX(Math.max(minX, Math.min(maxX, newX)));
                 mapGroup.setTranslateY(Math.max(minY, Math.min(maxY, newY)));
@@ -220,18 +239,56 @@ public class MainApp extends Application {
             lastMouseY = event.getSceneY();
         });
 
-        // Map Zooming
+        // Smooth cursor-centered focal zooming
         root.setOnScroll(event -> {
-            double zoomFactor = (event.getDeltaY() > 0) ? 1.1 : 0.9;
+            double zoomFactor = (event.getDeltaY() > 0) ? 1.12 : 0.88;
             double currentScale = mapGroup.getScaleX();
             double newScale = currentScale * zoomFactor;
 
-            if (newScale >= 0.5 && newScale <= 4.0) {
+            if (newScale >= 0.35 && newScale <= 5.0) {
+                Point2D mouseScene = new Point2D(event.getSceneX(), event.getSceneY());
+                Point2D mouseLocal = mapGroup.sceneToLocal(mouseScene);
+
                 mapGroup.setScaleX(newScale);
                 mapGroup.setScaleY(newScale);
+
+                Point2D afterScene = mapGroup.localToScene(mouseLocal);
+                mapGroup.setTranslateX(mapGroup.getTranslateX() - (afterScene.getX() - mouseScene.getX()));
+                mapGroup.setTranslateY(mapGroup.getTranslateY() - (afterScene.getY() - mouseScene.getY()));
             }
 
             event.consume();
+        });
+
+        // Double-click to smoothly zoom in towards cursor position
+        root.setOnMouseClicked(event -> {
+            if (event.getClickCount() == 2 && event.getButton() == MouseButton.PRIMARY && !editorManager.isDrawMode()) {
+                double currentScale = mapGroup.getScaleX();
+                double targetScale = Math.min(5.0, currentScale * 1.5);
+                if (targetScale != currentScale) {
+                    Point2D mouseScene = new Point2D(event.getSceneX(), event.getSceneY());
+                    Point2D mouseLocal = mapGroup.sceneToLocal(mouseScene);
+
+                    mapGroup.setScaleX(targetScale);
+                    mapGroup.setScaleY(targetScale);
+                    Point2D afterScene = mapGroup.localToScene(mouseLocal);
+                    double targetTx = mapGroup.getTranslateX() - (afterScene.getX() - mouseScene.getX());
+                    double targetTy = mapGroup.getTranslateY() - (afterScene.getY() - mouseScene.getY());
+
+                    mapGroup.setScaleX(currentScale);
+                    mapGroup.setScaleY(currentScale);
+
+                    Timeline zoomTimeline = new Timeline(
+                        new KeyFrame(Duration.millis(250),
+                            new KeyValue(mapGroup.scaleXProperty(), targetScale, Interpolator.EASE_OUT),
+                            new KeyValue(mapGroup.scaleYProperty(), targetScale, Interpolator.EASE_OUT),
+                            new KeyValue(mapGroup.translateXProperty(), targetTx, Interpolator.EASE_OUT),
+                            new KeyValue(mapGroup.translateYProperty(), targetTy, Interpolator.EASE_OUT)
+                        )
+                    );
+                    zoomTimeline.play();
+                }
+            }
         });
 
         Scene scene = new Scene(root, 1200, 800);
