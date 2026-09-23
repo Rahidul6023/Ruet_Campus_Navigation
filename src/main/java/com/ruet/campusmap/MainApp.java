@@ -118,6 +118,7 @@ public class MainApp extends Application {
 
         // Google Maps-style Search Bar (Modular & centered at top)
         MapSearchBar searchBar = new MapSearchBar(mapGroup, root);
+        searchBar.registerBuildings(initialBuildings);
         
         // Floating Settings & Admin Buttons (Top-Right)
         MapActionButtons actionButtons = new MapActionButtons();

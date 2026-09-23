@@ -1,5 +1,10 @@
 package com.ruet.campusmap;
 
+import com.ruet.campusmap.model.BuildingPolygon;
+import javafx.animation.Interpolator;
+import javafx.animation.KeyFrame;
+import javafx.animation.KeyValue;
+import javafx.animation.Timeline;
 import javafx.collections.FXCollections;
 import javafx.collections.ObservableList;
 import javafx.geometry.Insets;
@@ -15,7 +20,9 @@ import javafx.scene.layout.StackPane;
 import javafx.scene.layout.VBox;
 import javafx.scene.paint.Color;
 import javafx.scene.shape.SVGPath;
+import javafx.util.Duration;
 
+import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 
@@ -39,15 +46,34 @@ public class MapSearchBar {
     private final Separator separator;
     private boolean isDark = false;
 
-    // Sample coordinates for campus locations: [X, Y] center point on the SVG map
-    private final Map<String, double[]> locationCoordinates = Map.of(
+    // Searchable coordinates for campus locations: [X, Y] center point on the SVG map
+    private final Map<String, double[]> locationCoordinates = new HashMap<>(Map.of(
         "Central Library", new double[]{410.0, 515.0},
         "CSE Department", new double[]{650.0, 480.0},
         "Auditorium", new double[]{800.0, 600.0},
         "Admin Building", new double[]{500.0, 700.0},
         "Cafeteria", new double[]{900.0, 450.0},
         "Shahid Shahidul Islam Hall", new double[]{350.0, 300.0}
-    );
+    ));
+
+    public void registerBuildings(List<BuildingPolygon> buildings) {
+        if (buildings == null) return;
+        for (BuildingPolygon bp : buildings) {
+            if (bp == null || bp.getName() == null || bp.getPoints() == null || bp.getPoints().isEmpty()) continue;
+            double sumX = 0, sumY = 0;
+            int count = 0;
+            for (double[] pt : bp.getPoints()) {
+                if (pt != null && pt.length >= 2) {
+                    sumX += pt[0];
+                    sumY += pt[1];
+                    count++;
+                }
+            }
+            if (count > 0) {
+                locationCoordinates.putIfAbsent(bp.getName(), new double[]{sumX / count, sumY / count});
+            }
+        }
+    }
 
     public MapSearchBar(Group mapGroup, StackPane rootPane) {
         // --- 1. Left Magnifying Glass Icon (Google Maps Style) ---
@@ -247,7 +273,7 @@ public class MapSearchBar {
     }
 
     /**
-     * Centers map view on selected location and applies 2.0x zoom.
+     * Centers map view on selected location and applies smooth camera fly-to transition with 2.0x zoom.
      */
     private void focusOnLocation(String locationName, Group mapGroup, StackPane rootPane) {
         double[] coords = locationCoordinates.get(locationName);
@@ -255,18 +281,23 @@ public class MapSearchBar {
 
         double targetX = coords[0];
         double targetY = coords[1];
-
-        mapGroup.setScaleX(2.0);
-        mapGroup.setScaleY(2.0);
+        double targetScale = 2.0;
 
         double viewWidth = rootPane.getWidth();
         double viewHeight = rootPane.getHeight();
 
-        double newTranslateX = (viewWidth / 2.0) - (targetX * 2.0);
-        double newTranslateY = (viewHeight / 2.0) - (targetY * 2.0);
+        double targetTx = (viewWidth / 2.0) - (targetX * targetScale);
+        double targetTy = (viewHeight / 2.0) - (targetY * targetScale);
 
-        mapGroup.setTranslateX(newTranslateX);
-        mapGroup.setTranslateY(newTranslateY);
+        Timeline flyToAnim = new Timeline(
+            new KeyFrame(Duration.millis(450),
+                new KeyValue(mapGroup.scaleXProperty(), targetScale, Interpolator.EASE_BOTH),
+                new KeyValue(mapGroup.scaleYProperty(), targetScale, Interpolator.EASE_BOTH),
+                new KeyValue(mapGroup.translateXProperty(), targetTx, Interpolator.EASE_BOTH),
+                new KeyValue(mapGroup.translateYProperty(), targetTy, Interpolator.EASE_BOTH)
+            )
+        );
+        flyToAnim.play();
     }
 
     private void showDropdown() {
