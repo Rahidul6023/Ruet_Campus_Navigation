@@ -174,6 +174,7 @@ public class MainApp extends Application {
             buildingLabelsLayer.refresh();
             mapPoiLayer.refresh();
             settingsCard.applyTheme(isDark);
+            editorManager.applyTheme(isDark);
         };
 
         // Wire settings model changes
