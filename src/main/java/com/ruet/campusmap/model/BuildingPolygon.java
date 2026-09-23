@@ -5,14 +5,21 @@ public class BuildingPolygon {
     private String name;
     private String color;
     private List<double[]> points;
+    private boolean visibleToUsers = false;
     
     public BuildingPolygon() {}
 
     public BuildingPolygon(String name, String color, List<double[]> points){
+        this(name, color, points, false);
+    }
+
+    public BuildingPolygon(String name, String color, List<double[]> points, boolean visibleToUsers){
         this.name = name;
         this.color = color;
         this.points = points;
+        this.visibleToUsers = visibleToUsers;
     }
+
     public String getName(){
         return name;
     }
@@ -30,5 +37,11 @@ public class BuildingPolygon {
     }
     public void setPoints(List<double[]> points){
         this.points = points;
+    }
+    public boolean isVisibleToUsers() {
+        return visibleToUsers;
+    }
+    public void setVisibleToUsers(boolean visibleToUsers) {
+        this.visibleToUsers = visibleToUsers;
     }
 }

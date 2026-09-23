@@ -82,8 +82,17 @@ public class PolygonDataLoader {
 
     /**
      * Converts a BuildingPolygon data model into an interactive JavaFX Polygon with (model, polygon) callback.
+     * Defaults to user mode (invisible boxes).
      */
     public static Polygon createJavaFXPolygon(BuildingPolygon model, java.util.function.BiConsumer<BuildingPolygon, Polygon> onPolygonClick) {
+        return createJavaFXPolygon(model, onPolygonClick, false);
+    }
+
+    /**
+     * Converts a BuildingPolygon data model into an interactive JavaFX Polygon with (model, polygon) callback
+     * and explicit admin mode state.
+     */
+    public static Polygon createJavaFXPolygon(BuildingPolygon model, java.util.function.BiConsumer<BuildingPolygon, Polygon> onPolygonClick, boolean isAdminMode) {
         Polygon polygon = new Polygon();
         polygon.setUserData(model);
 
@@ -96,9 +105,8 @@ public class PolygonDataLoader {
             }
         }
 
-        // Apply initial color and style
-        applyPolygonStyle(polygon, model.getColor());
-        polygon.setStrokeWidth(2.0);
+        // Apply initial visual style (invisible for users by default, visible for admin)
+        applyPolygonStyle(polygon, model, isAdminMode);
 
         // Tooltip showing building name
         if (model.getName() != null && !model.getName().isEmpty()) {
@@ -106,17 +114,27 @@ public class PolygonDataLoader {
             Tooltip.install(polygon, tooltip);
         }
 
-        // Subtle hover feedback
+        // Hover feedback: hand cursor for all, but visual highlight only in admin mode or if user-visible
         polygon.setOnMouseEntered(e -> {
-            String color = model.getColor() != null ? model.getColor() : "#3498DB";
-            Color baseColor = Color.web(color);
-            polygon.setFill(new Color(baseColor.getRed(), baseColor.getGreen(), baseColor.getBlue(), 0.7));
-            polygon.setStrokeWidth(3.0);
+            boolean currentAdmin = Boolean.TRUE.equals(polygon.getProperties().get("adminMode"));
+            if (currentAdmin) {
+                String color = model.getColor() != null ? model.getColor() : "#3498DB";
+                Color baseColor = Color.web(color);
+                polygon.setFill(new Color(baseColor.getRed(), baseColor.getGreen(), baseColor.getBlue(), 0.75));
+                polygon.setStrokeWidth(3.0);
+            } else if (model.isVisibleToUsers()) {
+                String color = model.getColor() != null ? model.getColor() : "#3498DB";
+                Color baseColor = Color.web(color);
+                polygon.setFill(new Color(baseColor.getRed(), baseColor.getGreen(), baseColor.getBlue(), 0.70));
+                polygon.setStrokeWidth(3.0);
+            }
+            polygon.setCursor(javafx.scene.Cursor.HAND);
         });
 
         polygon.setOnMouseExited(e -> {
-            applyPolygonStyle(polygon, model.getColor());
-            polygon.setStrokeWidth(2.0);
+            boolean currentAdmin = Boolean.TRUE.equals(polygon.getProperties().get("adminMode"));
+            applyPolygonStyle(polygon, model, currentAdmin);
+            polygon.setCursor(javafx.scene.Cursor.DEFAULT);
         });
 
         if (onPolygonClick != null) {
@@ -131,12 +149,45 @@ public class PolygonDataLoader {
     }
 
     /**
-     * Updates the fill and stroke of a JavaFX polygon according to a hex color.
+     * Updates the fill and stroke of a JavaFX polygon according to admin/user mode and model visibility.
+     */
+    public static void applyPolygonStyle(Polygon polygon, BuildingPolygon model, boolean isAdminMode) {
+        polygon.getProperties().put("adminMode", isAdminMode);
+        if (isAdminMode) {
+            String hexColor = (model != null && model.getColor() != null && !model.getColor().isEmpty())
+                ? model.getColor()
+                : "#3498DB";
+            Color baseColor = Color.web(hexColor);
+            Color fillColor = new Color(baseColor.getRed(), baseColor.getGreen(), baseColor.getBlue(), 0.45);
+            polygon.setFill(fillColor);
+            polygon.setStroke(baseColor);
+            polygon.setStrokeWidth(2.0);
+        } else {
+            // User mode: box is NOT visible to users unless explicitly configured
+            if (model != null && model.isVisibleToUsers()) {
+                String hexColor = model.getColor() != null && !model.getColor().isEmpty() ? model.getColor() : "#3498DB";
+                Color baseColor = Color.web(hexColor);
+                Color fillColor = new Color(baseColor.getRed(), baseColor.getGreen(), baseColor.getBlue(), 0.45);
+                polygon.setFill(fillColor);
+                polygon.setStroke(baseColor);
+                polygon.setStrokeWidth(2.0);
+            } else {
+                // Invisible hitbox for users: clicks still register, but no visual box on map
+                polygon.setFill(Color.TRANSPARENT);
+                polygon.setStroke(Color.TRANSPARENT);
+                polygon.setStrokeWidth(0.0);
+            }
+        }
+    }
+
+    /**
+     * Updates the fill and stroke of a JavaFX polygon according to a hex color (backwards compatible).
      */
     public static void applyPolygonStyle(Polygon polygon, String hexColor) {
         Color baseColor = Color.web(hexColor != null && !hexColor.isEmpty() ? hexColor : "#3498DB");
         Color fillColor = new Color(baseColor.getRed(), baseColor.getGreen(), baseColor.getBlue(), 0.45);
         polygon.setFill(fillColor);
         polygon.setStroke(baseColor);
+        polygon.setStrokeWidth(2.0);
     }
 }
