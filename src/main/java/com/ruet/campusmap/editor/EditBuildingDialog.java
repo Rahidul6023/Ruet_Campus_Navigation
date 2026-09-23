@@ -6,6 +6,8 @@ import javafx.geometry.Pos;
 import javafx.scene.Scene;
 import javafx.scene.control.*;
 import javafx.scene.layout.HBox;
+import javafx.scene.layout.Priority;
+import javafx.scene.layout.Region;
 import javafx.scene.layout.VBox;
 import javafx.scene.paint.Color;
 import javafx.stage.Modality;
@@ -67,23 +69,47 @@ public class EditBuildingDialog {
 
         ColorPicker colorPicker = new ColorPicker(initialColor);
         colorPicker.setMaxWidth(Double.MAX_VALUE);
+        colorPicker.setStyle("-fx-background-radius: 8px; -fx-cursor: hand;");
+
+        // Color preset chips for quick theme selection
+        HBox presetChips = new HBox(6);
+        presetChips.setAlignment(Pos.CENTER_LEFT);
+        String[] presets = {"#1A73E8", "#00897B", "#E65100", "#D93025", "#8E24AA", "#1E8E3E", "#F9AB00"};
+        for (String hex : presets) {
+            Button chip = new Button();
+            chip.setPrefSize(22, 22);
+            chip.setMinSize(22, 22);
+            chip.setMaxSize(22, 22);
+            chip.setStyle("-fx-background-color: " + hex + "; -fx-background-radius: 50%; -fx-cursor: hand; -fx-border-color: #dadce0; -fx-border-radius: 50%;");
+            chip.setOnAction(e -> colorPicker.setValue(Color.web(hex)));
+            presetChips.getChildren().add(chip);
+        }
+
+        VBox colorSection = new VBox(6, colorLabel, colorPicker, presetChips);
 
         // Visibility checkbox (boxes default to hidden for regular users)
         CheckBox visibleCheck = new CheckBox("Visible to regular users");
         visibleCheck.setSelected(model.isVisibleToUsers());
-        visibleCheck.setStyle("-fx-font-size: 12px; -fx-text-fill: #3c4043; -fx-cursor: hand;");
+        visibleCheck.setStyle("-fx-font-size: 12px; -fx-text-fill: #202124; -fx-cursor: hand; -fx-font-weight: bold;");
 
-        Label visibleHint = new Label("Keep unchecked for invisible hitbox (clean campus map)");
-        visibleHint.setStyle("-fx-font-size: 10px; -fx-text-fill: #80868b;");
-        VBox visibilityBox = new VBox(2, visibleCheck, visibleHint);
+        Label visibleHint = new Label("Unchecked: Clean invisible hitbox for users. Checked: Shows outline on map.");
+        visibleHint.setWrapText(true);
+        visibleHint.setStyle("-fx-font-size: 11px; -fx-text-fill: #70757a;");
+
+        VBox visibilityCard = new VBox(4, visibleCheck, visibleHint);
+        visibilityCard.setPadding(new Insets(10));
+        visibilityCard.setStyle("-fx-background-color: #f8f9fa; -fx-background-radius: 8px; -fx-border-color: #dadce0; -fx-border-radius: 8px;");
 
         // Buttons
         Button saveBtn = new Button("Save Changes");
-        saveBtn.setStyle("-fx-background-color: #1a73e8; -fx-text-fill: white; -fx-font-weight: bold; -fx-cursor: hand;");
+        saveBtn.setStyle(
+            "-fx-background-color: #1a73e8; -fx-text-fill: white; -fx-font-weight: bold; " +
+            "-fx-background-radius: 8px; -fx-padding: 8 16; -fx-cursor: hand; -fx-font-size: 12px;"
+        );
         saveBtn.setOnAction(e -> {
             String newName = nameField.getText().trim();
             if (newName.isEmpty()) {
-                nameField.setStyle("-fx-border-color: red;");
+                nameField.setStyle("-fx-border-color: #d93025; -fx-background-radius: 8px; -fx-border-radius: 8px;");
                 return;
             }
             Color picked = colorPicker.getValue();
@@ -100,7 +126,10 @@ public class EditBuildingDialog {
         });
 
         Button deleteBtn = new Button("Delete");
-        deleteBtn.setStyle("-fx-background-color: #ea4335; -fx-text-fill: white; -fx-cursor: hand;");
+        deleteBtn.setStyle(
+            "-fx-background-color: #fce8e6; -fx-text-fill: #c5221f; -fx-font-weight: bold; " +
+            "-fx-background-radius: 8px; -fx-padding: 8 12; -fx-cursor: hand; -fx-font-size: 12px;"
+        );
         deleteBtn.setOnAction(e -> {
             Alert confirm = new Alert(Alert.AlertType.CONFIRMATION);
             confirm.setTitle("Confirm Delete");
@@ -116,17 +145,24 @@ public class EditBuildingDialog {
         });
 
         Button cancelBtn = new Button("Cancel");
-        cancelBtn.setStyle("-fx-background-color: #f1f3f4; -fx-cursor: hand;");
+        cancelBtn.setStyle(
+            "-fx-background-color: transparent; -fx-text-fill: #5f6368; " +
+            "-fx-background-radius: 8px; -fx-padding: 8 12; -fx-cursor: hand; -fx-font-size: 12px;"
+        );
         cancelBtn.setOnAction(e -> dialog.close());
 
-        HBox buttonBar = new HBox(8, deleteBtn, cancelBtn, saveBtn);
+        Region spacer = new Region();
+        HBox.setHgrow(spacer, Priority.ALWAYS);
+
+        HBox buttonBar = new HBox(8, deleteBtn, spacer, cancelBtn, saveBtn);
         buttonBar.setAlignment(Pos.CENTER_RIGHT);
 
-        VBox layout = new VBox(12, titleLabel, nameLabel, nameField, colorLabel, colorPicker, visibilityBox, buttonBar);
-        layout.setPadding(new Insets(18));
+        VBox layout = new VBox(14, titleLabel, new VBox(4, nameLabel, nameField), colorSection, visibilityCard, buttonBar);
+        layout.setPadding(new Insets(20));
         layout.setStyle("-fx-background-color: white;");
 
-        dialog.setScene(new Scene(layout, 380, 320));
+        dialog.setScene(new Scene(layout, 400, 380));
+        dialog.setResizable(false);
         dialog.show();
     }
 }
