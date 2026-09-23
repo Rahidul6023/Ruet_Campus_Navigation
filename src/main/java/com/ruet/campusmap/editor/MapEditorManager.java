@@ -33,6 +33,7 @@ public class MapEditorManager {
     // State
     private boolean active = false;
     private boolean isDrawMode = false;
+    private boolean previewUserMode = false;
 
     // Drawing state
     private final List<Double> currentPoints = new ArrayList<>();
@@ -49,6 +50,7 @@ public class MapEditorManager {
     private Button finishBtn;
     private Button undoBtn;
     private Button cancelBtn;
+    private Button previewBtn;
 
     private final java.util.function.Consumer<BuildingPolygon> onBuildingSelect;
 
@@ -86,7 +88,7 @@ public class MapEditorManager {
     }
 
     private void setupToolbar() {
-        toolbar = new HBox(12);
+        toolbar = new HBox(10);
         toolbar.setAlignment(Pos.CENTER_LEFT);
         toolbar.setPadding(new Insets(10, 16, 10, 16));
         toolbar.setStyle(
@@ -121,6 +123,13 @@ public class MapEditorManager {
         finishBtn.setDisable(true);
         finishBtn.setOnAction(e -> finishCurrentPolygon());
 
+        previewBtn = new Button("👁 Preview User View");
+        previewBtn.setStyle("-fx-background-color: #f1f3f4; -fx-cursor: hand; -fx-font-weight: bold;");
+        previewBtn.setOnAction(e -> togglePreviewUserMode());
+
+        Label hiddenBadge = new Label("🔒 Boxes Hidden for Users");
+        hiddenBadge.setStyle("-fx-font-size: 11px; -fx-text-fill: #5f6368; -fx-padding: 0 4px; -fx-font-style: italic;");
+
         Button saveBtn = new Button("Save to JSON");
         saveBtn.setStyle("-fx-background-color: #34a853; -fx-text-fill: white; -fx-cursor: hand; -fx-font-weight: bold;");
         saveBtn.setOnAction(e -> savePolygonsToJson());
@@ -133,9 +142,44 @@ public class MapEditorManager {
         toolbar.setOnMousePressed(javafx.event.Event::consume);
         toolbar.setOnMouseDragged(javafx.event.Event::consume);
 
-        toolbar.getChildren().addAll(editorBadge, modeBtn, undoBtn, cancelBtn, finishBtn, saveBtn, exitBtn);
+        toolbar.getChildren().addAll(editorBadge, modeBtn, undoBtn, cancelBtn, finishBtn, previewBtn, hiddenBadge, saveBtn, exitBtn);
         StackPane.setAlignment(toolbar, Pos.BOTTOM_CENTER);
         StackPane.setMargin(toolbar, new Insets(0, 0, 30, 0));
+    }
+
+    private void togglePreviewUserMode() {
+        previewUserMode = !previewUserMode;
+        if (previewUserMode) {
+            previewBtn.setText("🛠 Back to Editor View");
+            previewBtn.setStyle("-fx-background-color: #e8f0fe; -fx-text-fill: #1a73e8; -fx-cursor: hand; -fx-font-weight: bold;");
+            if (isDrawMode) {
+                toggleDrawMode();
+            }
+            modeBtn.setDisable(true);
+            undoBtn.setDisable(true);
+            cancelBtn.setDisable(true);
+            finishBtn.setDisable(true);
+        } else {
+            previewBtn.setText("👁 Preview User View");
+            previewBtn.setStyle("-fx-background-color: #f1f3f4; -fx-cursor: hand; -fx-font-weight: bold;");
+            modeBtn.setDisable(false);
+            updateButtonStates();
+        }
+        refreshPolygonVisuals();
+    }
+
+    public void refreshPolygonVisuals() {
+        boolean showAdminBoxes = active && !previewUserMode;
+        for (javafx.scene.Node node : polygonLayer.getChildren()) {
+            if (node instanceof Polygon && node.getUserData() instanceof BuildingPolygon) {
+                Polygon poly = (Polygon) node;
+                BuildingPolygon bp = (BuildingPolygon) node.getUserData();
+                com.ruet.campusmap.service.PolygonDataLoader.applyPolygonStyle(poly, bp, showAdminBoxes);
+            }
+        }
+        previewPolygon.setVisible(showAdminBoxes);
+        markerGroup.setVisible(showAdminBoxes);
+        guideLine.setVisible(showAdminBoxes && !currentPoints.isEmpty());
     }
 
     private void setupKeyListeners() {
@@ -155,7 +199,7 @@ public class MapEditorManager {
 
     private void setupMouseListeners() {
         polygonLayer.setOnMouseClicked(event -> {
-            if (!active || !isDrawMode) {
+            if (!active || !isDrawMode || previewUserMode) {
                 return;
             }
 
@@ -198,7 +242,7 @@ public class MapEditorManager {
 
         // Dynamic rubber-band guide line following the mouse cursor
         polygonLayer.setOnMouseMoved(event -> {
-            if (!active || !isDrawMode || currentPoints.isEmpty()) {
+            if (!active || !isDrawMode || currentPoints.isEmpty() || previewUserMode) {
                 guideLine.setVisible(false);
                 return;
             }
@@ -280,10 +324,11 @@ public class MapEditorManager {
             BuildingPolygon bp = result.get();
             savedBuildings.add(bp);
 
-            // Create Visual JavaFX Polygon on the map using PolygonDataLoader
+            // Create Visual JavaFX Polygon on the map using PolygonDataLoader with active editor style
+            boolean showAdminBoxes = active && !previewUserMode;
             Polygon finalPoly = com.ruet.campusmap.service.PolygonDataLoader.createJavaFXPolygon(bp, (clickedBp, p) -> {
                 handlePolygonClick(clickedBp, p);
-            });
+            }, showAdminBoxes);
             polygonLayer.getChildren().add(finalPoly);
 
             // Reset drawing state for next polygon
@@ -314,7 +359,16 @@ public class MapEditorManager {
         ColorPicker colorPicker = new ColorPicker(Color.web("#3498DB"));
         colorPicker.setMaxWidth(Double.MAX_VALUE);
 
-        content.getChildren().addAll(nameLabel, nameField, colorLabel, colorPicker);
+        // Visibility checkbox (boxes default to hidden for regular users)
+        CheckBox visibleCheck = new CheckBox("Visible to regular users");
+        visibleCheck.setSelected(false);
+        visibleCheck.setStyle("-fx-font-size: 12px; -fx-text-fill: #3c4043; -fx-cursor: hand;");
+
+        Label visibleHint = new Label("Keep unchecked for invisible hitbox (clean campus map)");
+        visibleHint.setStyle("-fx-font-size: 10px; -fx-text-fill: #80868b;");
+        VBox visibilityBox = new VBox(2, visibleCheck, visibleHint);
+
+        content.getChildren().addAll(nameLabel, nameField, colorLabel, colorPicker, visibilityBox);
         dialog.getDialogPane().setContent(content);
 
         dialog.setResultConverter(dialogButton -> {
@@ -327,7 +381,8 @@ public class MapEditorManager {
                     (int)(c.getGreen() * 255),
                     (int)(c.getBlue() * 255)
                 );
-                return new BuildingPolygon(name, hex, points);
+                boolean visibleToUsers = visibleCheck.isSelected();
+                return new BuildingPolygon(name, hex, points, visibleToUsers);
             }
             return null;
         });
@@ -336,7 +391,7 @@ public class MapEditorManager {
     }
 
     public void handlePolygonClick(BuildingPolygon bp, Polygon poly) {
-        if (!active) {
+        if (!active || previewUserMode) {
             if (onBuildingSelect != null) {
                 onBuildingSelect.accept(bp);
             }
@@ -354,12 +409,13 @@ public class MapEditorManager {
     private void openEditBuildingDialog(BuildingPolygon bp, Polygon poly) {
         EditBuildingDialog.show(
             bp,
-            (newName, newColor) -> {
+            (newName, newColor, visibleToUsers) -> {
                 bp.setName(newName);
                 bp.setColor(newColor);
+                bp.setVisibleToUsers(visibleToUsers);
 
                 // Update visual polygon style and tooltip
-                com.ruet.campusmap.service.PolygonDataLoader.applyPolygonStyle(poly, newColor);
+                refreshPolygonVisuals();
                 Tooltip.install(poly, new Tooltip(newName));
 
                 if (onBuildingSelect != null) {
@@ -403,19 +459,30 @@ public class MapEditorManager {
     public void activate() {
         if (!active) {
             active = true;
+            previewUserMode = false;
+            if (previewBtn != null) {
+                previewBtn.setText("👁 Preview User View");
+                previewBtn.setStyle("-fx-background-color: #f1f3f4; -fx-cursor: hand; -fx-font-weight: bold;");
+            }
+            if (modeBtn != null) {
+                modeBtn.setDisable(false);
+            }
             if (!root.getChildren().contains(toolbar)) {
                 root.getChildren().add(toolbar);
             }
+            refreshPolygonVisuals();
         }
     }
 
     public void deactivate() {
         if (active) {
             active = false;
+            previewUserMode = false;
             isDrawMode = false;
             polygonLayer.setCursor(javafx.scene.Cursor.DEFAULT);
             resetDrawingState();
             root.getChildren().remove(toolbar);
+            refreshPolygonVisuals();
         }
     }
 

@@ -18,9 +18,25 @@ import java.util.function.BiConsumer;
  */
 public class EditBuildingDialog {
 
+    public interface SaveCallback {
+        void onSave(String newName, String newColor, boolean visibleToUsers);
+    }
+
     public static void show(
         BuildingPolygon model,
         BiConsumer<String, String> onSave,
+        Runnable onDelete
+    ) {
+        show(model, (name, color, visible) -> {
+            if (onSave != null) {
+                onSave.accept(name, color);
+            }
+        }, onDelete);
+    }
+
+    public static void show(
+        BuildingPolygon model,
+        SaveCallback onSave,
         Runnable onDelete
     ) {
         Stage dialog = new Stage();
@@ -36,7 +52,7 @@ public class EditBuildingDialog {
 
         TextField nameField = new TextField(model.getName() != null ? model.getName() : "");
         nameField.setPromptText("Enter building name");
-        nameField.setStyle("-fx-font-size: 3px;");
+        nameField.setStyle("-fx-font-size: 13px;");
 
         // Color input
         Label colorLabel = new Label("Polygon Color:");
@@ -51,6 +67,15 @@ public class EditBuildingDialog {
 
         ColorPicker colorPicker = new ColorPicker(initialColor);
         colorPicker.setMaxWidth(Double.MAX_VALUE);
+
+        // Visibility checkbox (boxes default to hidden for regular users)
+        CheckBox visibleCheck = new CheckBox("Visible to regular users");
+        visibleCheck.setSelected(model.isVisibleToUsers());
+        visibleCheck.setStyle("-fx-font-size: 12px; -fx-text-fill: #3c4043; -fx-cursor: hand;");
+
+        Label visibleHint = new Label("Keep unchecked for invisible hitbox (clean campus map)");
+        visibleHint.setStyle("-fx-font-size: 10px; -fx-text-fill: #80868b;");
+        VBox visibilityBox = new VBox(2, visibleCheck, visibleHint);
 
         // Buttons
         Button saveBtn = new Button("Save Changes");
@@ -67,9 +92,10 @@ public class EditBuildingDialog {
                 (int)(picked.getGreen() * 255),
                 (int)(picked.getBlue() * 255)
             );
+            boolean isVisible = visibleCheck.isSelected();
             dialog.close();
             if (onSave != null) {
-                onSave.accept(newName, hex);
+                onSave.onSave(newName, hex, isVisible);
             }
         });
 
@@ -96,11 +122,11 @@ public class EditBuildingDialog {
         HBox buttonBar = new HBox(8, deleteBtn, cancelBtn, saveBtn);
         buttonBar.setAlignment(Pos.CENTER_RIGHT);
 
-        VBox layout = new VBox(14, titleLabel, nameLabel, nameField, colorLabel, colorPicker, buttonBar);
-        layout.setPadding(new Insets(20));
+        VBox layout = new VBox(12, titleLabel, nameLabel, nameField, colorLabel, colorPicker, visibilityBox, buttonBar);
+        layout.setPadding(new Insets(18));
         layout.setStyle("-fx-background-color: white;");
 
-        dialog.setScene(new Scene(layout, 360, 260));
+        dialog.setScene(new Scene(layout, 380, 320));
         dialog.show();
     }
 }
