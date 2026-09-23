@@ -31,7 +31,6 @@ public class AdminBuildingsDrawer {
     private Consumer<BuildingPolygon> onEditAction;
     private Consumer<BuildingPolygon> onDeleteAction;
     private Consumer<BuildingPolygon> onFocusAction;
-    private Runnable onNewBuildingAction;
 
     private boolean isDark = false;
 
@@ -99,13 +98,11 @@ public class AdminBuildingsDrawer {
     public void setCallbacks(
         Consumer<BuildingPolygon> onEdit,
         Consumer<BuildingPolygon> onDelete,
-        Consumer<BuildingPolygon> onFocus,
-        Runnable onNewBuilding
+        Consumer<BuildingPolygon> onFocus
     ) {
         this.onEditAction = onEdit;
         this.onDeleteAction = onDelete;
         this.onFocusAction = onFocus;
-        this.onNewBuildingAction = onNewBuilding;
     }
 
     public void refreshData(List<BuildingPolygon> buildings) {

@@ -13,8 +13,6 @@ import javafx.scene.paint.Color;
 import javafx.stage.Modality;
 import javafx.stage.Stage;
 
-import java.util.function.BiConsumer;
-
 /**
  * Modal dialog to edit or delete an existing building polygon.
  */
@@ -22,18 +20,6 @@ public class EditBuildingDialog {
 
     public interface SaveCallback {
         void onSave(String newName, String newColor, boolean visibleToUsers);
-    }
-
-    public static void show(
-        BuildingPolygon model,
-        BiConsumer<String, String> onSave,
-        Runnable onDelete
-    ) {
-        show(model, (name, color, visible) -> {
-            if (onSave != null) {
-                onSave.accept(name, color);
-            }
-        }, onDelete);
     }
 
     public static void show(

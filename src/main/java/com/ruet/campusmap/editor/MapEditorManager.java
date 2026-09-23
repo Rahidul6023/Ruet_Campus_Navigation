@@ -147,12 +147,6 @@ public class MapEditorManager {
                 if (onBuildingSelect != null) {
                     onBuildingSelect.accept(bp);
                 }
-            },
-            () -> {
-                if (!isDrawMode) {
-                    toggleDrawMode();
-                }
-                buildingsDrawer.hide();
             }
         );
         buildingsDrawer.refreshData(savedBuildings);
