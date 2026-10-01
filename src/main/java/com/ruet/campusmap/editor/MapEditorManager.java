@@ -710,7 +710,6 @@ public class MapEditorManager {
                 bp.setVisibleToUsers(visibleToUsers);
 
                 refreshPolygonVisuals();
-                Tooltip.install(poly, new Tooltip(newName));
                 buildingsDrawer.refreshData(savedBuildings);
 
                 if (onBuildingSelect != null) {

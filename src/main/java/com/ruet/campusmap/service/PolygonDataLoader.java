@@ -3,9 +3,14 @@ package com.ruet.campusmap.service;
 import com.google.gson.Gson;
 import com.google.gson.reflect.TypeToken;
 import com.ruet.campusmap.model.BuildingPolygon;
+import com.ruet.campusmap.view.BuildingHoverTooltip;
 import javafx.scene.control.Tooltip;
 import javafx.scene.paint.Color;
 import javafx.scene.shape.Polygon;
+
+import javafx.scene.effect.DropShadow;
+import javafx.scene.shape.StrokeLineJoin;
+import javafx.util.Duration;
 
 import java.io.File;
 import java.io.FileReader;
@@ -108,33 +113,46 @@ public class PolygonDataLoader {
         // Apply initial visual style (invisible for users by default, visible for admin)
         applyPolygonStyle(polygon, model, isAdminMode);
 
-        // Tooltip showing building name
-        if (model.getName() != null && !model.getName().isEmpty()) {
-            Tooltip tooltip = new Tooltip(model.getName());
-            Tooltip.install(polygon, tooltip);
-        }
-
-        // Hover feedback: hand cursor for all, but visual highlight only in admin mode or if user-visible
+        // Hover feedback: gorgeous semi-transparent tinted glow effect on building hitboxes
         polygon.setOnMouseEntered(e -> {
             boolean currentAdmin = Boolean.TRUE.equals(polygon.getProperties().get("adminMode"));
+            String color = (model != null && model.getColor() != null && !model.getColor().isEmpty())
+                ? model.getColor()
+                : "#1a73e8"; // Modern Google Blue
+            Color baseColor = Color.web(color);
+
             if (currentAdmin) {
-                String color = model.getColor() != null ? model.getColor() : "#3498DB";
-                Color baseColor = Color.web(color);
+                // Admin hover feedback: high-contrast highlight
                 polygon.setFill(new Color(baseColor.getRed(), baseColor.getGreen(), baseColor.getBlue(), 0.75));
+                polygon.setStroke(baseColor.brighter());
                 polygon.setStrokeWidth(3.0);
-            } else if (model.isVisibleToUsers()) {
-                String color = model.getColor() != null ? model.getColor() : "#3498DB";
-                Color baseColor = Color.web(color);
-                polygon.setFill(new Color(baseColor.getRed(), baseColor.getGreen(), baseColor.getBlue(), 0.70));
-                polygon.setStrokeWidth(3.0);
+                polygon.setEffect(new DropShadow(16, 0, 2, new Color(baseColor.getRed(), baseColor.getGreen(), baseColor.getBlue(), 0.60)));
+            } else {
+                // User hover effect: elegant semi-transparent tinted glass overlay with ambient glow
+                Color hoverFill = new Color(baseColor.getRed(), baseColor.getGreen(), baseColor.getBlue(), 0.35);
+                Color hoverStroke = new Color(baseColor.getRed(), baseColor.getGreen(), baseColor.getBlue(), 0.90);
+                polygon.setFill(hoverFill);
+                polygon.setStroke(hoverStroke);
+                polygon.setStrokeWidth(2.5);
+                polygon.setStrokeLineJoin(StrokeLineJoin.ROUND);
+                polygon.setEffect(new DropShadow(14, 0, 2, new Color(baseColor.getRed(), baseColor.getGreen(), baseColor.getBlue(), 0.50)));
             }
             polygon.setCursor(javafx.scene.Cursor.HAND);
+
+            if (model != null && model.getName() != null && !model.getName().trim().isEmpty()) {
+                BuildingHoverTooltip.getInstance().show(model.getName(), e.getSceneX(), e.getSceneY());
+            }
+        });
+
+        polygon.setOnMouseMoved(e -> {
+            BuildingHoverTooltip.getInstance().updatePosition(e.getSceneX(), e.getSceneY());
         });
 
         polygon.setOnMouseExited(e -> {
             boolean currentAdmin = Boolean.TRUE.equals(polygon.getProperties().get("adminMode"));
             applyPolygonStyle(polygon, model, currentAdmin);
             polygon.setCursor(javafx.scene.Cursor.DEFAULT);
+            BuildingHoverTooltip.getInstance().hide();
         });
 
         if (onPolygonClick != null) {
@@ -146,6 +164,31 @@ public class PolygonDataLoader {
         }
 
         return polygon;
+    }
+
+    /**
+     * Installs a fast, beautifully styled tooltip on a building polygon.
+     */
+    public static void installBuildingTooltip(Polygon polygon, String buildingName) {
+        if (buildingName == null || buildingName.trim().isEmpty()) return;
+        Tooltip tooltip = new Tooltip(buildingName);
+        tooltip.setShowDelay(Duration.millis(60));
+        tooltip.setShowDuration(Duration.seconds(10));
+        tooltip.setHideDelay(Duration.millis(80));
+        tooltip.setStyle(
+            "-fx-background-color: rgba(24, 27, 34, 0.95); " +
+            "-fx-text-fill: #ffffff; " +
+            "-fx-font-family: 'Segoe UI', 'Roboto', sans-serif; " +
+            "-fx-font-size: 13px; " +
+            "-fx-font-weight: bold; " +
+            "-fx-padding: 6px 12px; " +
+            "-fx-background-radius: 8px; " +
+            "-fx-border-color: rgba(255, 255, 255, 0.20); " +
+            "-fx-border-radius: 8px; " +
+            "-fx-border-width: 1px; " +
+            "-fx-effect: dropshadow(gaussian, rgba(0,0,0,0.4), 10, 0, 0, 3);"
+        );
+        Tooltip.install(polygon, tooltip);
     }
 
     /**
@@ -162,6 +205,7 @@ public class PolygonDataLoader {
             polygon.setFill(fillColor);
             polygon.setStroke(baseColor);
             polygon.setStrokeWidth(2.0);
+            polygon.setEffect(null);
         } else {
             // User mode: box is NOT visible to users unless explicitly configured
             if (model != null && model.isVisibleToUsers()) {
@@ -171,11 +215,13 @@ public class PolygonDataLoader {
                 polygon.setFill(fillColor);
                 polygon.setStroke(baseColor);
                 polygon.setStrokeWidth(2.0);
+                polygon.setEffect(null);
             } else {
-                // Invisible hitbox for users: clicks still register, but no visual box on map
+                // Invisible hitbox for users: clicks and hover still register, but no persistent visual box
                 polygon.setFill(Color.TRANSPARENT);
                 polygon.setStroke(Color.TRANSPARENT);
                 polygon.setStrokeWidth(0.0);
+                polygon.setEffect(null);
             }
         }
     }

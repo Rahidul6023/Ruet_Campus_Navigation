@@ -5,6 +5,7 @@ import com.ruet.campusmap.editor.MapEditorManager;
 import com.ruet.campusmap.model.AppSettings;
 import com.ruet.campusmap.model.BuildingPolygon;
 import com.ruet.campusmap.service.PolygonDataLoader;
+import com.ruet.campusmap.view.BuildingHoverTooltip;
 import com.ruet.campusmap.view.BuildingInfoCard;
 import com.ruet.campusmap.view.BuildingLabelsLayer;
 import com.ruet.campusmap.view.CampusBrandBadge;
@@ -41,10 +42,14 @@ public class MainApp extends Application {
 
     @Override
     public void start(Stage stage) {
-        String svgUrl = getClass().getResource("/maps/in.svg").toExternalForm();
+        java.net.URL mapResource = getClass().getResource("/maps/ruet-campus-map-refined-v2.svg");
+        if (mapResource == null) {
+            mapResource = getClass().getResource("/maps/Ruet campus map refined v2.svg");
+        }
+        String svgUrl = (mapResource != null) ? mapResource.toExternalForm() : "";
 
-        double mapWidth = 1000;
-        double mapHeight = 1000;
+        double mapWidth = 4190;
+        double mapHeight = 1720;
 
         // Settings Model
         AppSettings settings = new AppSettings();
@@ -56,7 +61,7 @@ public class MainApp extends Application {
         String mapCss = "* { margin: 0; padding: 0; box-sizing: border-box; } " +
                         "html, body { margin: 0 !important; padding: 0 !important; width: 100% !important; height: 100% !important; overflow: hidden !important; background: transparent !important; } " +
                         "::-webkit-scrollbar { display: none !important; width: 0 !important; height: 0 !important; } " +
-                        "svg { width: 1000px !important; height: 1000px !important; display: block !important; }";
+                        "svg { width: 4190px !important; height: 1720px !important; display: block !important; }";
         campusView.getEngine().setUserStyleSheetLocation(
             "data:text/css;charset=utf-8," + 
             URLEncoder.encode(mapCss, StandardCharsets.UTF_8)
@@ -68,7 +73,7 @@ public class MainApp extends Application {
             }
         });
 
-        // Map Size Defining (Matches 1000x1000 SVG canvas)
+        // Map Size Defining (Matches 4190x1720 SVG canvas)
         campusView.setPrefSize(mapWidth, mapHeight);
         campusView.setMinSize(mapWidth, mapHeight);
         campusView.setMaxSize(mapWidth, mapHeight);
@@ -88,14 +93,14 @@ public class MainApp extends Application {
             buildingInfoCard.showPoi(buildingName, "Campus Landmark", "RUET Campus");
         });
 
-        // Known landmark coordinates on the SVG map canvas
+        // Known landmark coordinates on the SVG map canvas (calibrated for ruet-campus-map-refined-v2.svg)
         Map<String, double[]> knownCoordinates = Map.of(
-            "Central Library", new double[]{410.0, 515.0},
-            "CSE Department", new double[]{650.0, 480.0},
-            "Auditorium", new double[]{800.0, 600.0},
-            "Admin Building", new double[]{500.0, 700.0},
-            "Cafeteria", new double[]{900.0, 450.0},
-            "Shahid Shahidul Islam Hall", new double[]{350.0, 300.0}
+            "Central Library", new double[]{1362.0, 883.0},
+            "CSE Department", new double[]{811.0, 388.0},
+            "Auditorium", new double[]{1283.0, 838.0},
+            "Admin Building", new double[]{570.0, 798.0},
+            "Cafeteria", new double[]{414.0, 1222.0},
+            "Shahid Shahidul Islam Hall", new double[]{1706.0, 574.0}
         );
         buildingLabelsLayer.initKnownLandmarks(knownCoordinates);
 
@@ -148,6 +153,9 @@ public class MainApp extends Application {
             settingsCard.getContainer()
         );
 
+        // Attach in-scene mouse-transparent building hover tooltip
+        BuildingHoverTooltip.getInstance().attachTo(root);
+
         // When Settings Button is clicked -> Toggle floating settings card
         actionButtons.setOnSettingsAction(() -> {
             settingsCard.toggle();
@@ -169,7 +177,7 @@ public class MainApp extends Application {
         Runnable applyThemeState = () -> {
             boolean isDark = settings.isEffectiveDarkMode();
 
-            root.setStyle(isDark ? "-fx-background-color: #1a1d24;" : "-fx-background-color: #aad3df;");
+            root.setStyle(isDark ? "-fx-background-color: #1a1d24;" : "-fx-background-color: #f5f7f2;");
 
             try {
                 if (isDark) {
@@ -193,6 +201,7 @@ public class MainApp extends Application {
             mapPoiLayer.refresh();
             settingsCard.applyTheme(isDark);
             editorManager.applyTheme(isDark);
+            BuildingHoverTooltip.getInstance().applyTheme(isDark);
         };
 
         // Wire settings model changes
@@ -206,7 +215,7 @@ public class MainApp extends Application {
             }
         });
 
-        // Clamps map position so it can NEVER be dragged away off-screen into empty void
+        // Clamps map position so it can NEVER be dragged away into empty void (zero margin, full-screen map)
         Runnable clampMapPosition = () -> {
             double viewWidth = root.getWidth();
             double viewHeight = root.getHeight();
@@ -218,12 +227,12 @@ public class MainApp extends Application {
 
             double halfExcessX = Math.max(0.0, (scaledWidth - viewWidth) / 2.0);
             double halfExcessY = Math.max(0.0, (scaledHeight - viewHeight) / 2.0);
-            double margin = 200.0;
 
-            double minTx = -halfExcessX - margin;
-            double maxTx = halfExcessX + margin;
-            double minTy = -halfExcessY - margin;
-            double maxTy = halfExcessY + margin;
+            // Zero margin: map edges stop exactly at screen edges, never floating like a box
+            double minTx = -halfExcessX;
+            double maxTx = halfExcessX;
+            double minTy = -halfExcessY;
+            double maxTy = halfExcessY;
 
             double clampedX = Math.max(minTx, Math.min(maxTx, mapGroup.getTranslateX()));
             double clampedY = Math.max(minTy, Math.min(maxTy, mapGroup.getTranslateY()));
@@ -232,29 +241,61 @@ public class MainApp extends Application {
             mapGroup.setTranslateY(clampedY);
         };
 
-        // Auto-fit map to window size so opening feels like authentic Google Maps
+        // Sets default zoom: average between minimum (height fit) and maximum zoom
         Runnable centerAndFitMap = () -> {
             double viewWidth = root.getWidth();
             double viewHeight = root.getHeight();
             if (viewWidth <= 0 || viewHeight <= 0) return;
 
-            double fitScale = Math.min((viewWidth - 140) / mapWidth, (viewHeight - 160) / mapHeight);
-            fitScale = Math.max(0.5, Math.min(fitScale, 1.4));
+            // Maximum zoomed out state: up and bottom sides fit properly in the screen
+            double minScale = Math.max(viewHeight / mapHeight, viewWidth / mapWidth);
+            double maxScale = 3.5;
 
-            mapGroup.setScaleX(fitScale);
-            mapGroup.setScaleY(fitScale);
-            mapGroup.setTranslateX(0);
-            mapGroup.setTranslateY(0);
+            // Comfortable campus overview zoom (a little bit zoomed out from previous close zoom)
+            double defaultScale = minScale + (maxScale - minScale) * 0.22;
+
+            // Focus on RUET core academic & administrative hub
+            double focusX = 1100.0;
+            double focusY = 860.0;
+            double targetTx = (mapWidth / 2.0 - focusX) * defaultScale;
+            double targetTy = (mapHeight / 2.0 - focusY) * defaultScale;
+
+            mapGroup.setScaleX(defaultScale);
+            mapGroup.setScaleY(defaultScale);
+            mapGroup.setTranslateX(targetTx);
+            mapGroup.setTranslateY(targetTy);
+
+            clampMapPosition.run();
         };
 
         root.widthProperty().addListener((obs, oldVal, newVal) -> {
             if (oldVal.doubleValue() == 0 && newVal.doubleValue() > 0) {
                 Platform.runLater(centerAndFitMap);
+            } else if (newVal.doubleValue() > 0 && root.getHeight() > 0) {
+                double minScale = Math.max(root.getHeight() / mapHeight, newVal.doubleValue() / mapWidth);
+                if (mapGroup.getScaleX() < minScale) {
+                    mapGroup.setScaleX(minScale);
+                    mapGroup.setScaleY(minScale);
+                }
+                clampMapPosition.run();
+            }
+        });
+        root.heightProperty().addListener((obs, oldVal, newVal) -> {
+            if (oldVal.doubleValue() == 0 && newVal.doubleValue() > 0) {
+                Platform.runLater(centerAndFitMap);
+            } else if (newVal.doubleValue() > 0 && root.getWidth() > 0) {
+                double minScale = Math.max(newVal.doubleValue() / mapHeight, root.getWidth() / mapWidth);
+                if (mapGroup.getScaleX() < minScale) {
+                    mapGroup.setScaleX(minScale);
+                    mapGroup.setScaleY(minScale);
+                }
+                clampMapPosition.run();
             }
         });
 
         // Map Panning and dismiss settings card on click-outside
         root.setOnMousePressed(event -> {
+            BuildingHoverTooltip.getInstance().hide();
             if (settingsCard.isVisible()) {
                 settingsCard.hide();
                 actionButtons.setSettingsActive(false);
@@ -288,18 +329,28 @@ public class MainApp extends Application {
 
         // Smooth cursor-centered focal zooming with boundary clamping
         root.setOnScroll(event -> {
+            BuildingHoverTooltip.getInstance().hide();
+            double viewWidth = root.getWidth();
+            double viewHeight = root.getHeight();
+            if (viewWidth <= 0 || viewHeight <= 0) return;
+
+            // Maximum zoomed out state: up and bottom sides fit properly in the screen
+            double minScale = Math.max(viewHeight / mapHeight, viewWidth / mapWidth);
+            double maxScale = 3.5;
+
             double zoomFactor = (event.getDeltaY() > 0) ? 1.12 : 0.88;
             double currentScale = mapGroup.getScaleX();
             double newScale = currentScale * zoomFactor;
 
-            double fitScale = 1.0;
-            if (root.getWidth() > 0 && root.getHeight() > 0) {
-                fitScale = Math.min((root.getWidth() - 140) / mapWidth, (root.getHeight() - 160) / mapHeight);
+            // Clamped so user can NEVER zoom out beyond the maximum zoom-out limit (minScale)
+            if (newScale < minScale) {
+                newScale = minScale;
             }
-            double minScale = Math.max(0.4, fitScale * 0.7);
-            double maxScale = Math.min(4.5, fitScale * 4.0);
+            if (newScale > maxScale) {
+                newScale = maxScale;
+            }
 
-            if (newScale >= minScale && newScale <= maxScale) {
+            if (Math.abs(newScale - currentScale) > 0.0001) {
                 Point2D mouseScene = new Point2D(event.getSceneX(), event.getSceneY());
                 Point2D mouseLocal = mapGroup.sceneToLocal(mouseScene);
 
@@ -319,9 +370,14 @@ public class MainApp extends Application {
         // Double-click to smoothly zoom in towards cursor position
         root.setOnMouseClicked(event -> {
             if (event.getClickCount() == 2 && event.getButton() == MouseButton.PRIMARY && !editorManager.isDrawMode()) {
+                double viewWidth = root.getWidth();
+                double viewHeight = root.getHeight();
+                double minScale = Math.max(viewHeight / mapHeight, viewWidth / mapWidth);
+                double maxScale = 3.5;
+
                 double currentScale = mapGroup.getScaleX();
-                double targetScale = Math.min(4.0, currentScale * 1.5);
-                if (targetScale != currentScale) {
+                double targetScale = Math.min(maxScale, currentScale * 1.5);
+                if (Math.abs(targetScale - currentScale) > 0.001) {
                     Point2D mouseScene = new Point2D(event.getSceneX(), event.getSceneY());
                     Point2D mouseLocal = mapGroup.sceneToLocal(mouseScene);
 
@@ -331,15 +387,12 @@ public class MainApp extends Application {
                     double targetTx = mapGroup.getTranslateX() - (afterScene.getX() - mouseScene.getX());
                     double targetTy = mapGroup.getTranslateY() - (afterScene.getY() - mouseScene.getY());
 
-                    double viewWidth = root.getWidth();
-                    double viewHeight = root.getHeight();
                     double scaledWidth = mapWidth * targetScale;
                     double scaledHeight = mapHeight * targetScale;
                     double halfExcessX = Math.max(0.0, (scaledWidth - viewWidth) / 2.0);
                     double halfExcessY = Math.max(0.0, (scaledHeight - viewHeight) / 2.0);
-                    double margin = 200.0;
-                    targetTx = Math.max(-halfExcessX - margin, Math.min(halfExcessX + margin, targetTx));
-                    targetTy = Math.max(-halfExcessY - margin, Math.min(halfExcessY + margin, targetTy));
+                    targetTx = Math.max(-halfExcessX, Math.min(halfExcessX, targetTx));
+                    targetTy = Math.max(-halfExcessY, Math.min(halfExcessY, targetTy));
 
                     mapGroup.setScaleX(currentScale);
                     mapGroup.setScaleY(currentScale);

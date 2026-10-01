@@ -72,38 +72,38 @@ public class MapPoiLayer {
 
     private void initDefaultPois() {
         // --- 1. Food POIs (Warm Orange / Amber) ---
-        addPoi("Central Cafeteria", PoiCategory.FOOD, "Open 8:00 AM - 9:00 PM • Breakfast, Lunch & Meals", 900.0, 450.0, "🍽️", "#ea8600");
-        addPoi("Shahidul Islam Hall Canteen", PoiCategory.FOOD, "Open 7:30 AM - 10:30 PM • Dining Hall", 330.0, 280.0, "🍽️", "#ea8600");
-        addPoi("Campus Tea & Snacks Tong", PoiCategory.FOOD, "Student hangout, hot tea, bakery snacks", 680.0, 520.0, "☕", "#ea8600");
-        addPoi("West Gate Food Court", PoiCategory.FOOD, "Fast food, juices, light meals", 250.0, 600.0, "🍽️", "#ea8600");
+        addPoi("Central Cafeteria", PoiCategory.FOOD, "Open 8:00 AM - 9:00 PM • Breakfast, Lunch & Meals", 414.0, 1222.0, "🍽️", "#ea8600");
+        addPoi("Campus Food Court", PoiCategory.FOOD, "Fast food, juices, meals & snacks", 2268.0, 801.0, "🍽️", "#ea8600");
+        addPoi("Shahidul Islam Hall Canteen", PoiCategory.FOOD, "Open 7:30 AM - 10:30 PM • Dining Hall", 1706.0, 574.0, "🍽️", "#ea8600");
+        addPoi("Campus Tea & Snacks Tong", PoiCategory.FOOD, "Student hangout, hot tea, bakery snacks", 645.0, 888.0, "☕", "#ea8600");
 
         // --- 2. Printers & Stationery POIs (Blue) ---
-        addPoi("Central Library Print & Copy", PoiCategory.PRINTER, "High-speed document printing, spiral binding", 430.0, 500.0, "🖨️", "#1a73e8");
-        addPoi("CSE Dept Document Corner", PoiCategory.PRINTER, "Lab manuals, photocopies, project prints", 670.0, 460.0, "🖨️", "#1a73e8");
-        addPoi("Campus Market Stationery", PoiCategory.PRINTER, "Thesis printing, supplies, stationery", 520.0, 750.0, "🖨️", "#1a73e8");
+        addPoi("Central Library Print & Copy", PoiCategory.PRINTER, "High-speed document printing, spiral binding", 1362.0, 883.0, "🖨️", "#1a73e8");
+        addPoi("CSE Dept Document Corner", PoiCategory.PRINTER, "Lab manuals, photocopies, project prints", 811.0, 388.0, "🖨️", "#1a73e8");
+        addPoi("Admin Building Photostat", PoiCategory.PRINTER, "Official document copies, forms & supplies", 570.0, 798.0, "🖨️", "#1a73e8");
 
         // --- 3. Restrooms POIs (Teal) ---
-        addPoi("Central Library Restroom", PoiCategory.RESTROOM, "Ground floor, accessible stalls available", 395.0, 525.0, "🚻", "#00897b");
-        addPoi("CSE Building Restroom (1st Fl)", PoiCategory.RESTROOM, "East wing washrooms", 630.0, 490.0, "🚻", "#00897b");
-        addPoi("Auditorium Restroom Wing", PoiCategory.RESTROOM, "Public event facilities", 820.0, 580.0, "🚻", "#00897b");
-        addPoi("Admin Building Public Washroom", PoiCategory.RESTROOM, "Visitor washrooms near lobby", 485.0, 715.0, "🚻", "#00897b");
+        addPoi("Central Library Restroom", PoiCategory.RESTROOM, "Ground floor, accessible stalls available", 1325.0, 885.0, "🚻", "#00897b");
+        addPoi("Auditorium Restroom Wing", PoiCategory.RESTROOM, "Public event facilities", 1283.0, 838.0, "🚻", "#00897b");
+        addPoi("Admin Building Public Washroom", PoiCategory.RESTROOM, "Visitor washrooms near lobby", 587.0, 860.0, "🚻", "#00897b");
+        addPoi("Academic Complex Restroom", PoiCategory.RESTROOM, "Departmental facilities", 791.0, 560.0, "🚻", "#00897b");
 
         // --- 4. Parking POIs (Green) ---
-        addPoi("Main Gate Vehicle Parking", PoiCategory.PARKING, "Cars, motorcycles & visitors", 180.0, 550.0, "🅿️", "#1e8e3e");
-        addPoi("Admin Building Reserved Parking", PoiCategory.PARKING, "Faculty & administrative parking", 480.0, 670.0, "🅿️", "#1e8e3e");
-        addPoi("Auditorium Parking Area", PoiCategory.PARKING, "Open parking ground", 830.0, 640.0, "🅿️", "#1e8e3e");
-        addPoi("Department Cycle Stand", PoiCategory.PARKING, "Dedicated bicycle lock stands", 620.0, 440.0, "🚲", "#1e8e3e");
+        addPoi("Main Gate Vehicle Parking", PoiCategory.PARKING, "Cars, motorcycles & visitors", 234.0, 557.0, "🅿️", "#1e8e3e");
+        addPoi("Admin Building Reserved Parking", PoiCategory.PARKING, "Faculty & administrative parking", 485.0, 940.0, "🅿️", "#1e8e3e");
+        addPoi("Auditorium Parking Area", PoiCategory.PARKING, "Open parking ground", 1225.0, 1025.0, "🅿️", "#1e8e3e");
+        addPoi("Central Field Cycle Stand", PoiCategory.PARKING, "Dedicated bicycle lock stands", 1565.0, 735.0, "🚲", "#1e8e3e");
 
         // --- 5. Accessibility Ramps & Entrances (Wheelchair Accessible Mode) ---
-        addPoi("Library Wheelchair Ramp", PoiCategory.ACCESSIBILITY, "Gentle slope ramp to Main Library Lobby", 405.0, 530.0, "♿", "#188038");
-        addPoi("CSE Building Level Entry", PoiCategory.ACCESSIBILITY, "Zero-step accessible entrance with automatic doors", 640.0, 495.0, "♿", "#188038");
-        addPoi("Admin Building West Ramp", PoiCategory.ACCESSIBILITY, "Ramp entrance connecting to elevator bank", 495.0, 685.0, "♿", "#188038");
-        addPoi("Auditorium Ramp Entrance", PoiCategory.ACCESSIBILITY, "Barrier-free access to hall seating", 790.0, 610.0, "♿", "#188038");
+        addPoi("Library Wheelchair Ramp", PoiCategory.ACCESSIBILITY, "Gentle slope ramp to Main Library Lobby", 1305.0, 885.0, "♿", "#188038");
+        addPoi("CSE Building Level Entry", PoiCategory.ACCESSIBILITY, "Zero-step accessible entrance with automatic doors", 811.0, 420.0, "♿", "#188038");
+        addPoi("Admin Building West Ramp", PoiCategory.ACCESSIBILITY, "Ramp entrance connecting to elevator bank", 587.0, 920.0, "♿", "#188038");
+        addPoi("Auditorium Ramp Entrance", PoiCategory.ACCESSIBILITY, "Barrier-free access to hall seating", 1263.0, 856.0, "♿", "#188038");
 
         // --- 6. Campus Shuttle Stops ---
-        addPoi("Main Gate Shuttle Stop", PoiCategory.SHUTTLE, "Campus Circular Shuttle route - Gate 1", 195.0, 520.0, "🚐", "#7b1fa2");
-        addPoi("Academic Quad Shuttle Point", PoiCategory.SHUTTLE, "Connecting Library & Engineering Departments", 510.0, 510.0, "🚐", "#7b1fa2");
-        addPoi("Auditorium Shuttle Terminal", PoiCategory.SHUTTLE, "Shuttle stop serving Halls & Sports Complex", 840.0, 615.0, "🚐", "#7b1fa2");
+        addPoi("Main Gate Shuttle Stop", PoiCategory.SHUTTLE, "Campus Circular Shuttle route - Gate 1", 268.0, 904.0, "🚐", "#7b1fa2");
+        addPoi("Academic Quad Shuttle Point", PoiCategory.SHUTTLE, "Connecting Library & Engineering Departments", 700.0, 468.0, "🚐", "#7b1fa2");
+        addPoi("Auditorium Shuttle Terminal", PoiCategory.SHUTTLE, "Shuttle stop serving Halls & Sports Complex", 1225.0, 735.0, "🚐", "#7b1fa2");
     }
 
     private void addPoi(String name, PoiCategory category, String description, double x, double y, String symbol, String hexColor) {

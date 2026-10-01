@@ -46,14 +46,28 @@ public class MapSearchBar {
     private final Separator separator;
     private boolean isDark = false;
 
-    // Searchable coordinates for campus locations: [X, Y] center point on the SVG map
-    private final Map<String, double[]> locationCoordinates = new HashMap<>(Map.of(
-        "Central Library", new double[]{410.0, 515.0},
-        "CSE Department", new double[]{650.0, 480.0},
-        "Auditorium", new double[]{800.0, 600.0},
-        "Admin Building", new double[]{500.0, 700.0},
-        "Cafeteria", new double[]{900.0, 450.0},
-        "Shahid Shahidul Islam Hall", new double[]{350.0, 300.0}
+    // Searchable coordinates for campus locations: [X, Y] center point on the SVG map (calibrated for ruet-campus-map-refined-v2.svg)
+    private final Map<String, double[]> locationCoordinates = new HashMap<>(Map.ofEntries(
+        Map.entry("Central Library", new double[]{1362.0, 883.0}),
+        Map.entry("CSE Department", new double[]{811.0, 388.0}),
+        Map.entry("Auditorium", new double[]{1283.0, 838.0}),
+        Map.entry("Admin Building", new double[]{570.0, 798.0}),
+        Map.entry("Cafeteria", new double[]{414.0, 1222.0}),
+        Map.entry("Shahid Shahidul Islam Hall", new double[]{1706.0, 574.0}),
+        Map.entry("Academic Building 1", new double[]{721.0, 1299.0}),
+        Map.entry("Academic Building 2 (EEE)", new double[]{908.0, 1321.0}),
+        Map.entry("Academic Building 3 (CME)", new double[]{1102.0, 1314.0}),
+        Map.entry("Academic Building 4 (Civil)", new double[]{791.0, 560.0}),
+        Map.entry("Central Field", new double[]{1750.0, 1068.0}),
+        Map.entry("Central Pond", new double[]{960.0, 780.0}),
+        Map.entry("Main Gate", new double[]{268.0, 904.0}),
+        Map.entry("Shahid Minar", new double[]{317.0, 1055.0}),
+        Map.entry("Shahid Ziaur Rahman Hall", new double[]{1353.0, 444.0}),
+        Map.entry("Shahid Abdul Hamid Hall", new double[]{1606.0, 440.0}),
+        Map.entry("Sher-e-Bangla Hall", new double[]{1955.0, 613.0}),
+        Map.entry("Shahid Lt. Selim Hall", new double[]{2268.0, 520.0}),
+        Map.entry("Food Court", new double[]{2268.0, 801.0}),
+        Map.entry("Medical Center", new double[]{2267.0, 953.0})
     ));
 
     public void registerBuildings(List<BuildingPolygon> buildings) {
@@ -281,21 +295,22 @@ public class MapSearchBar {
 
         double targetX = coords[0];
         double targetY = coords[1];
-        double targetScale = 2.0;
+        double mapWidth = 4190.0;
+        double mapHeight = 1720.0;
+        double targetScale = 1.35;
 
         double viewWidth = rootPane.getWidth();
         double viewHeight = rootPane.getHeight();
 
-        double targetTx = (500.0 - targetX) * targetScale;
-        double targetTy = (500.0 - targetY) * targetScale;
+        double targetTx = (mapWidth / 2.0 - targetX) * targetScale;
+        double targetTy = (mapHeight / 2.0 - targetY) * targetScale;
 
-        double scaledWidth = 1000.0 * targetScale;
-        double scaledHeight = 1000.0 * targetScale;
+        double scaledWidth = mapWidth * targetScale;
+        double scaledHeight = mapHeight * targetScale;
         double halfExcessX = Math.max(0.0, (scaledWidth - viewWidth) / 2.0);
         double halfExcessY = Math.max(0.0, (scaledHeight - viewHeight) / 2.0);
-        double margin = 200.0;
-        targetTx = Math.max(-halfExcessX - margin, Math.min(halfExcessX + margin, targetTx));
-        targetTy = Math.max(-halfExcessY - margin, Math.min(halfExcessY + margin, targetTy));
+        targetTx = Math.max(-halfExcessX, Math.min(halfExcessX, targetTx));
+        targetTy = Math.max(-halfExcessY, Math.min(halfExcessY, targetTy));
 
         Timeline flyToAnim = new Timeline(
             new KeyFrame(Duration.millis(450),

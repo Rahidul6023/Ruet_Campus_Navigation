@@ -167,9 +167,23 @@ public class MapBottomControls {
     }
 
     private void animateZoom(Group mapGroup, double factor) {
+        double mapWidth = 4190.0;
+        double mapHeight = 1720.0;
+
+        double vw = (mapGroup.getScene() != null) ? mapGroup.getScene().getWidth() : 1200.0;
+        double vh = (mapGroup.getScene() != null) ? mapGroup.getScene().getHeight() : 800.0;
+
+        double minScale = Math.max(vh / mapHeight, vw / mapWidth);
+        double maxScale = 3.5;
+
         double currentScale = mapGroup.getScaleX();
         double targetScale = currentScale * factor;
-        targetScale = Math.max(0.4, Math.min(targetScale, 4.5));
+        if (targetScale < minScale) {
+            targetScale = minScale;
+        }
+        if (targetScale > maxScale) {
+            targetScale = maxScale;
+        }
         if (Math.abs(targetScale - currentScale) < 0.001) return;
 
         double currentTx = mapGroup.getTranslateX();
@@ -178,8 +192,8 @@ public class MapBottomControls {
         double targetTy = currentTy;
 
         if (mapGroup.getScene() != null) {
-            double cx = mapGroup.getScene().getWidth() / 2.0;
-            double cy = mapGroup.getScene().getHeight() / 2.0;
+            double cx = vw / 2.0;
+            double cy = vh / 2.0;
             Point2D centerScene = new Point2D(cx, cy);
             Point2D centerLocal = mapGroup.sceneToLocal(centerScene);
 
@@ -189,14 +203,11 @@ public class MapBottomControls {
             targetTx = currentTx - (afterScene.getX() - cx);
             targetTy = currentTy - (afterScene.getY() - cy);
 
-            // Clamp targetTx and targetTy to prevent scrolling into void
-            double vw = mapGroup.getScene().getWidth();
-            double vh = mapGroup.getScene().getHeight();
-            double halfExcessX = Math.max(0.0, (1000.0 * targetScale - vw) / 2.0);
-            double halfExcessY = Math.max(0.0, (1000.0 * targetScale - vh) / 2.0);
-            double margin = 200.0;
-            targetTx = Math.max(-halfExcessX - margin, Math.min(halfExcessX + margin, targetTx));
-            targetTy = Math.max(-halfExcessY - margin, Math.min(halfExcessY + margin, targetTy));
+            // Clamp targetTx and targetTy to prevent scrolling into void (zero margin)
+            double halfExcessX = Math.max(0.0, (mapWidth * targetScale - vw) / 2.0);
+            double halfExcessY = Math.max(0.0, (mapHeight * targetScale - vh) / 2.0);
+            targetTx = Math.max(-halfExcessX, Math.min(halfExcessX, targetTx));
+            targetTy = Math.max(-halfExcessY, Math.min(halfExcessY, targetTy));
 
             mapGroup.setScaleX(currentScale);
             mapGroup.setScaleY(currentScale);
@@ -214,21 +225,39 @@ public class MapBottomControls {
     }
 
     private void resetToCenter(Group mapGroup) {
-        double fitScale = 1.0;
+        double mapWidth = 4190.0;
+        double mapHeight = 1720.0;
+        double minScale = 0.465;
+        double maxScale = 3.5;
+        double defaultScale = minScale + (maxScale - minScale) * 0.22;
+        double targetTx = 0.0;
+        double targetTy = 0.0;
         if (mapGroup.getScene() != null) {
             double vw = mapGroup.getScene().getWidth();
             double vh = mapGroup.getScene().getHeight();
             if (vw > 0 && vh > 0) {
-                fitScale = Math.min((vw - 140) / 1000.0, (vh - 160) / 1000.0);
-                fitScale = Math.max(0.5, Math.min(fitScale, 1.4));
+                minScale = Math.max(vh / mapHeight, vw / mapWidth);
+                defaultScale = minScale + (maxScale - minScale) * 0.22;
+
+                double focusX = 1100.0;
+                double focusY = 860.0;
+                targetTx = (mapWidth / 2.0 - focusX) * defaultScale;
+                targetTy = (mapHeight / 2.0 - focusY) * defaultScale;
+
+                double scaledWidth = mapWidth * defaultScale;
+                double scaledHeight = mapHeight * defaultScale;
+                double halfExcessX = Math.max(0.0, (scaledWidth - vw) / 2.0);
+                double halfExcessY = Math.max(0.0, (scaledHeight - vh) / 2.0);
+                targetTx = Math.max(-halfExcessX, Math.min(halfExcessX, targetTx));
+                targetTy = Math.max(-halfExcessY, Math.min(halfExcessY, targetTy));
             }
         }
         Timeline timeline = new Timeline(
             new KeyFrame(Duration.millis(350),
-                new KeyValue(mapGroup.scaleXProperty(), fitScale, Interpolator.EASE_OUT),
-                new KeyValue(mapGroup.scaleYProperty(), fitScale, Interpolator.EASE_OUT),
-                new KeyValue(mapGroup.translateXProperty(), 0.0, Interpolator.EASE_OUT),
-                new KeyValue(mapGroup.translateYProperty(), 0.0, Interpolator.EASE_OUT)
+                new KeyValue(mapGroup.scaleXProperty(), defaultScale, Interpolator.EASE_OUT),
+                new KeyValue(mapGroup.scaleYProperty(), defaultScale, Interpolator.EASE_OUT),
+                new KeyValue(mapGroup.translateXProperty(), targetTx, Interpolator.EASE_OUT),
+                new KeyValue(mapGroup.translateYProperty(), targetTy, Interpolator.EASE_OUT)
             )
         );
         timeline.play();
