@@ -144,6 +144,26 @@ public class MainApp extends Application {
         // Google Maps-style Search Bar (Modular & centered at top)
         MapSearchBar searchBar = new MapSearchBar(mapGroup, root);
         searchBar.registerBuildings(initialBuildings);
+
+        // When a teacher is selected from search -> Display teacher card & fly to their building
+        searchBar.setOnTeacherSelected(teacher -> {
+            buildingInfoCard.showTeacher(teacher, () -> {
+                if (teacher.getBuildingName() != null && !teacher.getBuildingName().isBlank()) {
+                    searchBar.flyToLocation(teacher.getBuildingName());
+                }
+            });
+        });
+
+        // When a location is selected from search -> Display building card
+        searchBar.setOnLocationSelected(locationName -> {
+            for (BuildingPolygon bp : initialBuildings) {
+                if (bp.getName() != null && bp.getName().equalsIgnoreCase(locationName)) {
+                    buildingInfoCard.showBuilding(bp);
+                    return;
+                }
+            }
+            buildingInfoCard.showPoi(locationName, "Campus Landmark", "RUET Campus Facilities");
+        });
         
         // Floating Settings & Admin Buttons (Top-Right)
         MapActionButtons actionButtons = new MapActionButtons();
