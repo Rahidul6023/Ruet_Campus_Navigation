@@ -26,6 +26,7 @@ public class BuildingLabelsLayer {
     private final List<LabelEntry> entries = new ArrayList<>();
     private final AppSettings settings;
     private final Consumer<String> onLabelClick;
+    private final Consumer<BuildingPolygon> onBuildingClick;
 
     private static class LabelEntry {
         final StackPane badge;
@@ -45,30 +46,12 @@ public class BuildingLabelsLayer {
         }
     }
 
-    public BuildingLabelsLayer(AppSettings settings, Consumer<String> onLabelClick) {
+    public BuildingLabelsLayer(AppSettings settings, Consumer<BuildingPolygon> onBuildingClick) {
         this.settings = settings;
-        this.onLabelClick = onLabelClick;
+        this.onBuildingClick = onBuildingClick;
+        this.onLabelClick = null;
         this.container = new Pane();
         this.container.setPickOnBounds(false); // Let clicks pass through empty spaces to polygons/map
-    }
-
-    /**
-     * Initializes default campus landmark labels based on known coordinates.
-     */
-    public void initKnownLandmarks(Map<String, double[]> coordinates) {
-        if (coordinates == null) return;
-        for (Map.Entry<String, double[]> entry : coordinates.entrySet()) {
-            String name = entry.getKey();
-            double[] coords = entry.getValue();
-            if (coords != null && coords.length >= 2) {
-                // Only add if not already registered via polygon
-                boolean exists = entries.stream().anyMatch(e -> e.fullName.equalsIgnoreCase(name));
-                if (!exists) {
-                    addBuildingLabel(name, "", coords[0], coords[1], null);
-                }
-            }
-        }
-        refresh();
     }
 
     /**
@@ -118,7 +101,9 @@ public class BuildingLabelsLayer {
         Tooltip.install(badge, tooltip);
 
         badge.setOnMouseClicked(e -> {
-            if (onLabelClick != null) {
+            if (onBuildingClick != null && bp != null) {
+                onBuildingClick.accept(bp);
+            } else if (onLabelClick != null) {
                 onLabelClick.accept(fullName);
             }
             e.consume();
@@ -201,12 +186,28 @@ public class BuildingLabelsLayer {
         container.setVisible(mode != AppSettings.BuildingLabelMode.NONE);
 
         for (LabelEntry e : entries) {
+            // Only keep code names and labels of hitboxes
+            if (e.polygon == null) {
+                e.badge.setVisible(false);
+                e.badge.setManaged(false);
+                continue;
+            }
+
             if (mode == AppSettings.BuildingLabelMode.CODE) {
-                // If code is not set, fallback to full name instead of fake letters
-                String codeText = (e.code != null && !e.code.isBlank()) ? e.code : e.fullName;
-                e.label.setText(codeText);
-            } else {
+                // Only display authentic code names of the hitboxes
+                if (e.code != null && !e.code.isBlank()) {
+                    e.label.setText(e.code);
+                    e.badge.setVisible(true);
+                    e.badge.setManaged(true);
+                } else {
+                    e.badge.setVisible(false);
+                    e.badge.setManaged(false);
+                    continue;
+                }
+            } else if (mode == AppSettings.BuildingLabelMode.FULL_NAME) {
                 e.label.setText(e.fullName);
+                e.badge.setVisible(true);
+                e.badge.setManaged(true);
             }
 
             if (isDark) {
