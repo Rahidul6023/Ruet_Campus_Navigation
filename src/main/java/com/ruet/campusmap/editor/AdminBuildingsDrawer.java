@@ -116,7 +116,9 @@ public class AdminBuildingsDrawer {
         String query = filter != null ? filter.trim().toLowerCase() : "";
 
         List<BuildingPolygon> matches = allBuildings.stream()
-            .filter(b -> query.isEmpty() || (b.getName() != null && b.getName().toLowerCase().contains(query)))
+            .filter(b -> query.isEmpty() ||
+                (b.getName() != null && b.getName().toLowerCase().contains(query)) ||
+                (b.getCodeName() != null && b.getCodeName().toLowerCase().contains(query)))
             .toList();
 
         if (matches.isEmpty()) {
@@ -166,15 +168,28 @@ public class AdminBuildingsDrawer {
         VBox textCol = new VBox(2);
         HBox.setHgrow(textCol, Priority.ALWAYS);
 
+        HBox titleRow = new HBox(6);
+        titleRow.setAlignment(Pos.CENTER_LEFT);
         Label nameLabel = new Label(bp.getName() != null ? bp.getName() : "Unnamed");
         nameLabel.setStyle("-fx-font-weight: bold; -fx-font-size: 12px; -fx-text-fill: " + (isDark ? "#e8eaed;" : "#202124;"));
+        titleRow.getChildren().add(nameLabel);
+
+        if (bp.getCodeName() != null && !bp.getCodeName().isBlank()) {
+            Label codeBadge = new Label(bp.getCodeName());
+            codeBadge.setStyle(
+                "-fx-background-color: " + (isDark ? "#173154;" : "#e8f0fe;") +
+                "-fx-text-fill: " + (isDark ? "#8ab4f8;" : "#1a73e8;") +
+                "-fx-background-radius: 4px; -fx-padding: 1 5; -fx-font-weight: bold; -fx-font-size: 10px;"
+            );
+            titleRow.getChildren().add(codeBadge);
+        }
 
         int ptCount = bp.getPoints() != null ? bp.getPoints().size() : 0;
         String metaText = ptCount + " corners • " + (bp.isVisibleToUsers() ? "Visible to users" : "Hidden from users");
         Label metaLabel = new Label(metaText);
         metaLabel.setStyle("-fx-font-size: 10px; -fx-text-fill: " + (isDark ? "#9aa0a6;" : "#70757a;"));
 
-        textCol.getChildren().addAll(nameLabel, metaLabel);
+        textCol.getChildren().addAll(titleRow, metaLabel);
 
         // Action Buttons: Edit (Pencil), Delete (Trash)
         Button editBtn = createIconButton("M3 17.25V21h3.75L17.81 9.94l-3.75-3.75L3 17.25zM20.71 7.04c.39-.39.39-1.02 0-1.41l-2.34-2.34c-.39-.39-1.02-.39-1.41 0l-1.83 1.83 3.75 3.75 1.83-1.83z", "#1a73e8", "Edit Building");
