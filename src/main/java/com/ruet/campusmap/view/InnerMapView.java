@@ -77,6 +77,9 @@ public class InnerMapView {
         container = new StackPane();
         container.setVisible(false);
         container.setManaged(false);
+        container.setMinSize(0, 0);
+        container.setPrefSize(Region.USE_COMPUTED_SIZE, Region.USE_COMPUTED_SIZE);
+        container.setMaxSize(Double.MAX_VALUE, Double.MAX_VALUE);
 
         // --- 1. Floor Plan SVG Web Engine View ---
         floorWebView = new WebView();
@@ -84,6 +87,7 @@ public class InnerMapView {
         floorWebView.setPrefSize(mapWidth, mapHeight);
         floorWebView.setMinSize(mapWidth, mapHeight);
         floorWebView.setMaxSize(mapWidth, mapHeight);
+        floorWebView.resize(mapWidth, mapHeight);
         floorWebView.setMouseTransparent(true);
 
         floorWebView.getChildrenUnmodifiable().addListener((javafx.collections.ListChangeListener<javafx.scene.Node>) change -> {
@@ -96,6 +100,9 @@ public class InnerMapView {
         floorMapGroup = new Group(floorWebView);
         viewport = new StackPane(floorMapGroup);
         viewport.setStyle("-fx-background-color: transparent;");
+        viewport.setMinSize(0, 0);
+        viewport.setPrefSize(Region.USE_COMPUTED_SIZE, Region.USE_COMPUTED_SIZE);
+        viewport.setMaxSize(Double.MAX_VALUE, Double.MAX_VALUE);
 
         // --- 2. Top Header Bar (Back button + Building info + Floor description) ---
         SVGPath backArrow = new SVGPath();
@@ -175,31 +182,32 @@ public class InnerMapView {
         // Bind Pan and Zoom interactions
         setupPanZoomInteractions();
 
-        // Responsive resize listeners: keep map clamped within view boundaries and maintain min scale
-        container.widthProperty().addListener((obs, oldVal, newVal) -> {
-            if (container.isVisible() && newVal.doubleValue() > 0) {
-                double minScale = getMinScale();
-                if (floorMapGroup.getScaleX() < minScale) {
-                    floorMapGroup.setScaleX(minScale);
-                    floorMapGroup.setScaleY(minScale);
-                    updateZoomLabel(minScale);
-                }
-                clampPosition();
+        // Ensure container is constrained to scene bounds and handles window resizing dynamically
+        container.sceneProperty().addListener((obs, oldScene, newScene) -> {
+            if (newScene != null) {
+                container.maxWidthProperty().bind(newScene.widthProperty());
+                container.maxHeightProperty().bind(newScene.heightProperty());
+                container.prefWidthProperty().bind(newScene.widthProperty());
+                container.prefHeightProperty().bind(newScene.heightProperty());
+
+                newScene.widthProperty().addListener((o, ov, nv) -> handleResize());
+                newScene.heightProperty().addListener((o, ov, nv) -> handleResize());
             }
         });
-        container.heightProperty().addListener((obs, oldVal, newVal) -> {
-            if (container.isVisible() && newVal.doubleValue() > 0) {
-                double minScale = getMinScale();
-                if (floorMapGroup.getScaleX() < minScale) {
-                    floorMapGroup.setScaleX(minScale);
-                    floorMapGroup.setScaleY(minScale);
-                    updateZoomLabel(minScale);
-                }
-                clampPosition();
-            }
-        });
+        container.widthProperty().addListener((obs, oldVal, newVal) -> handleResize());
+        container.heightProperty().addListener((obs, oldVal, newVal) -> handleResize());
 
         applyTheme(settings != null && settings.isEffectiveDarkMode());
+    }
+
+    private void handleResize() {
+        if (!container.isVisible()) return;
+        double minScale = getMinScale();
+        if (floorMapGroup.getScaleX() <= minScale + 0.05) {
+            fitToScreen();
+        } else {
+            clampPosition();
+        }
     }
 
     private Button createCircleButton(String text, String tooltipText, Runnable action) {
@@ -221,8 +229,8 @@ public class InnerMapView {
         double viewHeight = getViewHeight();
         double allowedWidth = Math.max(100.0, viewWidth - GAP_LEFT - GAP_RIGHT);
         double allowedHeight = Math.max(100.0, viewHeight - GAP_TOP - GAP_BOTTOM);
-        Bounds bounds = floorMapGroup.getBoundsInParent();
-        return (bounds.getWidth() > allowedWidth + 1.0) || (bounds.getHeight() > allowedHeight + 1.0);
+        double scale = floorMapGroup.getScaleX();
+        return (mapWidth * scale > allowedWidth + 1.0) || (mapHeight * scale > allowedHeight + 1.0);
     }
 
     private void setupPanZoomInteractions() {
@@ -278,21 +286,27 @@ public class InnerMapView {
     }
 
     private double getViewWidth() {
-        if (container.getWidth() > 0) return container.getWidth();
-        if (container.getScene() != null && container.getScene().getWidth() > 0) return container.getScene().getWidth();
-        if (container.getParent() instanceof Region) {
-            double pw = ((Region) container.getParent()).getWidth();
-            if (pw > 0) return pw;
+        if (container.getScene() != null && container.getScene().getWidth() > 0) {
+            return container.getScene().getWidth();
+        }
+        if (container.getParent() instanceof Region parent && parent.getWidth() > 0 && parent.getWidth() < 2200) {
+            return parent.getWidth();
+        }
+        if (container.getWidth() > 0 && container.getWidth() < 2200) {
+            return container.getWidth();
         }
         return 1200;
     }
 
     private double getViewHeight() {
-        if (container.getHeight() > 0) return container.getHeight();
-        if (container.getScene() != null && container.getScene().getHeight() > 0) return container.getScene().getHeight();
-        if (container.getParent() instanceof Region) {
-            double ph = ((Region) container.getParent()).getHeight();
-            if (ph > 0) return ph;
+        if (container.getScene() != null && container.getScene().getHeight() > 0) {
+            return container.getScene().getHeight();
+        }
+        if (container.getParent() instanceof Region parent && parent.getHeight() > 0 && parent.getHeight() < 1600) {
+            return parent.getHeight();
+        }
+        if (container.getHeight() > 0 && container.getHeight() < 1600) {
+            return container.getHeight();
         }
         return 800;
     }
@@ -354,23 +368,12 @@ public class InnerMapView {
         floorMapGroup.setScaleX(fitScale);
         floorMapGroup.setScaleY(fitScale);
 
-        // Center map within the available gap-bounded area using boundsInParent
-        Bounds bounds = floorMapGroup.getBoundsInParent();
-        double currentCenterX = (bounds.getMinX() + bounds.getMaxX()) / 2.0;
-        double currentCenterY = (bounds.getMinY() + bounds.getMaxY()) / 2.0;
+        // Center map within the available gap-bounded area
+        double baseTx = (GAP_LEFT - GAP_RIGHT) / 2.0;
+        double baseTy = (GAP_TOP - GAP_BOTTOM) / 2.0;
 
-        double viewWidth = getViewWidth();
-        double viewHeight = getViewHeight();
-        double allowedWidth = Math.max(100.0, viewWidth - GAP_LEFT - GAP_RIGHT);
-        double allowedHeight = Math.max(100.0, viewHeight - GAP_TOP - GAP_BOTTOM);
-
-        double targetCenterX = GAP_LEFT + allowedWidth / 2.0;
-        double targetCenterY = GAP_TOP + allowedHeight / 2.0;
-
-        double currentTx = floorMapGroup.getTranslateX();
-        double currentTy = floorMapGroup.getTranslateY();
-        floorMapGroup.setTranslateX(currentTx + (targetCenterX - currentCenterX));
-        floorMapGroup.setTranslateY(currentTy + (targetCenterY - currentCenterY));
+        floorMapGroup.setTranslateX(baseTx);
+        floorMapGroup.setTranslateY(baseTy);
 
         updateZoomLabel(fitScale);
         clampPosition();
@@ -389,21 +392,13 @@ public class InnerMapView {
         double allowedWidth = Math.max(100.0, viewWidth - GAP_LEFT - GAP_RIGHT);
         double allowedHeight = Math.max(100.0, viewHeight - GAP_TOP - GAP_BOTTOM);
 
-        Bounds bounds = floorMapGroup.getBoundsInParent();
-        double scaledWidth = bounds.getWidth();
-        double scaledHeight = bounds.getHeight();
+        double scale = floorMapGroup.getScaleX();
+        double scaledWidth = mapWidth * scale;
+        double scaledHeight = mapHeight * scale;
 
-        double currentCenterX = (bounds.getMinX() + bounds.getMaxX()) / 2.0;
-        double currentCenterY = (bounds.getMinY() + bounds.getMaxY()) / 2.0;
-
-        double targetCenterX = GAP_LEFT + allowedWidth / 2.0;
-        double targetCenterY = GAP_TOP + allowedHeight / 2.0;
-
-        // Base translation that places the map center at the target center
-        double currentTx = floorMapGroup.getTranslateX();
-        double currentTy = floorMapGroup.getTranslateY();
-        double baseTx = currentTx + (targetCenterX - currentCenterX);
-        double baseTy = currentTy + (targetCenterY - currentCenterY);
+        // Base center offset in viewport to place map center midway within the allowed bounds
+        double baseTx = (GAP_LEFT - GAP_RIGHT) / 2.0;
+        double baseTy = (GAP_TOP - GAP_BOTTOM) / 2.0;
 
         // Excess dimensions beyond the allowed area
         double excessX = Math.max(0.0, scaledWidth - allowedWidth);
@@ -417,8 +412,8 @@ public class InnerMapView {
         double minTy = baseTy - excessY / 2.0;
         double maxTy = baseTy + excessY / 2.0;
 
-        double clampedX = Math.max(minTx, Math.min(maxTx, currentTx));
-        double clampedY = Math.max(minTy, Math.min(maxTy, currentTy));
+        double clampedX = Math.max(minTx, Math.min(maxTx, floorMapGroup.getTranslateX()));
+        double clampedY = Math.max(minTy, Math.min(maxTy, floorMapGroup.getTranslateY()));
 
         floorMapGroup.setTranslateX(clampedX);
         floorMapGroup.setTranslateY(clampedY);
