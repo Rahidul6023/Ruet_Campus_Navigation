@@ -99,21 +99,8 @@ public class MainApp extends Application {
         // Modern floating building info card (Bottom-Left)
         BuildingInfoCard buildingInfoCard = new BuildingInfoCard();
 
-        // Interactive Building Labels Layer
-        BuildingLabelsLayer buildingLabelsLayer = new BuildingLabelsLayer(settings, buildingName -> {
-            buildingInfoCard.showPoi(buildingName, "Campus Landmark", "RUET Campus");
-        });
-
-        // Known landmark coordinates on the SVG map canvas (calibrated for ruet-campus-map-refined-v2.svg)
-        Map<String, double[]> knownCoordinates = Map.of(
-            "Central Library", new double[]{1362.0, 883.0},
-            "CSE Department", new double[]{811.0, 388.0},
-            "Auditorium", new double[]{1283.0, 838.0},
-            "Admin Building", new double[]{570.0, 798.0},
-            "Cafeteria", new double[]{414.0, 1222.0},
-            "Shahid Shahidul Islam Hall", new double[]{1706.0, 574.0}
-        );
-        buildingLabelsLayer.initKnownLandmarks(knownCoordinates);
+        // Interactive Building Labels Layer (only displays authentic hitbox badges)
+        BuildingLabelsLayer buildingLabelsLayer = new BuildingLabelsLayer(settings, buildingInfoCard::showBuilding);
 
         // Interactive POI Layer (Food, Printers, Restrooms, Parking, Accessibility, Shuttle)
         MapPoiLayer mapPoiLayer = new MapPoiLayer(settings, (name, category, description) -> {
