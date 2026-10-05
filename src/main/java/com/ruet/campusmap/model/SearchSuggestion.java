@@ -7,7 +7,8 @@ public class SearchSuggestion {
 
     public enum Type {
         LOCATION,
-        TEACHER
+        TEACHER,
+        ROOM
     }
 
     private final Type type;

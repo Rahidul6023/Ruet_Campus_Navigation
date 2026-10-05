@@ -91,6 +91,7 @@ public class MapEditorManager {
     private java.util.function.Consumer<BuildingPolygon> onBuildingCreated;
     private java.util.function.Consumer<BuildingPolygon> onBuildingUpdated;
     private java.util.function.Consumer<BuildingPolygon> onBuildingDeleted;
+    private java.util.function.Consumer<BuildingPolygon> onOpenInnerMap;
 
     public MapEditorManager(StackPane root, Pane polygonLayer) {
         this(root, polygonLayer, null, null);
@@ -161,6 +162,11 @@ public class MapEditorManager {
             bp -> {
                 if (onBuildingSelect != null) {
                     onBuildingSelect.accept(bp);
+                }
+            },
+            bp -> {
+                if (onOpenInnerMap != null) {
+                    onOpenInnerMap.accept(bp);
                 }
             }
         );
@@ -1005,6 +1011,10 @@ public class MapEditorManager {
 
     public void setOnBuildingDeleted(java.util.function.Consumer<BuildingPolygon> onBuildingDeleted) {
         this.onBuildingDeleted = onBuildingDeleted;
+    }
+
+    public void setOnOpenInnerMap(java.util.function.Consumer<BuildingPolygon> onOpenInnerMap) {
+        this.onOpenInnerMap = onOpenInnerMap;
     }
 
     public List<BuildingPolygon> getSavedBuildings() {

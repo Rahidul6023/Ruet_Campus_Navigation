@@ -1,0 +1,85 @@
+[
+  {
+    "id": "cse-1-201",
+    "roomNumber": "201",
+    "name": "Software Engineering Lab",
+    "type": "Lab",
+    "description": "High performance computing and software development workstation cluster",
+    "x": 1200.0,
+    "y": 245.0,
+    "visibleToUsers": true,
+    "occupants": []
+  },
+  {
+    "id": "cse-1-401",
+    "roomNumber": "401",
+    "name": "Faculty Office (HOD)",
+    "type": "Head Office",
+    "description": "Office of the Department Head",
+    "x": 262.0,
+    "y": 457.0,
+    "visibleToUsers": true,
+    "occupants": [
+      "Dr. Md. Al Mamun"
+    ]
+  },
+  {
+    "id": "cse-1-405",
+    "roomNumber": "405",
+    "name": "Professor's Office",
+    "type": "Faculty Office",
+    "description": "Faculty consultation and research chamber",
+    "x": 262.0,
+    "y": 533.0,
+    "visibleToUsers": true,
+    "occupants": [
+      "Dr. Md. Rabiul Islam"
+    ]
+  },
+  {
+    "id": "cse-1-408",
+    "roomNumber": "408",
+    "name": "Professor's Office",
+    "type": "Faculty Office",
+    "description": "Faculty consultation and research chamber",
+    "x": 262.0,
+    "y": 610.0,
+    "visibleToUsers": true,
+    "occupants": [
+      "Dr. Md. Shahid Uz Zaman"
+    ]
+  },
+  {
+    "id": "cse-1-218",
+    "roomNumber": "218",
+    "name": "Network & Security Lab",
+    "type": "Lab",
+    "description": "Network routing, switching, and cybersecurity experimentation",
+    "x": 448.0,
+    "y": 1330.0,
+    "visibleToUsers": true,
+    "occupants": []
+  },
+  {
+    "id": "cse-1-219",
+    "roomNumber": "219",
+    "name": "AI & Data Science Lab",
+    "type": "Lab",
+    "description": "Deep learning GPU servers and machine learning workstations",
+    "x": 721.0,
+    "y": 1330.0,
+    "visibleToUsers": true,
+    "occupants": []
+  },
+  {
+    "id": "cse-1-220",
+    "roomNumber": "220",
+    "name": "Computer Graphics Lab",
+    "type": "Lab",
+    "description": "Rendering systems, VR hardware and graphic design stations",
+    "x": 992.0,
+    "y": 1330.0,
+    "visibleToUsers": true,
+    "occupants": []
+  }
+]

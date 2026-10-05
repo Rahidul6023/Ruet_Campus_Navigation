@@ -1,6 +1,7 @@
 package com.ruet.campusmap.editor;
 
 import com.ruet.campusmap.model.BuildingPolygon;
+import com.ruet.campusmap.service.InnerMapRegistry;
 import javafx.geometry.Insets;
 import javafx.geometry.Pos;
 import javafx.scene.Node;
@@ -31,6 +32,7 @@ public class AdminBuildingsDrawer {
     private Consumer<BuildingPolygon> onEditAction;
     private Consumer<BuildingPolygon> onDeleteAction;
     private Consumer<BuildingPolygon> onFocusAction;
+    private Consumer<BuildingPolygon> onOpenInnerMapAction;
 
     private boolean isDark = false;
 
@@ -100,9 +102,19 @@ public class AdminBuildingsDrawer {
         Consumer<BuildingPolygon> onDelete,
         Consumer<BuildingPolygon> onFocus
     ) {
+        setCallbacks(onEdit, onDelete, onFocus, null);
+    }
+
+    public void setCallbacks(
+        Consumer<BuildingPolygon> onEdit,
+        Consumer<BuildingPolygon> onDelete,
+        Consumer<BuildingPolygon> onFocus,
+        Consumer<BuildingPolygon> onOpenInnerMap
+    ) {
         this.onEditAction = onEdit;
         this.onDeleteAction = onDelete;
         this.onFocusAction = onFocus;
+        this.onOpenInnerMapAction = onOpenInnerMap;
     }
 
     public void refreshData(List<BuildingPolygon> buildings) {
@@ -206,7 +218,24 @@ public class AdminBuildingsDrawer {
             }
         });
 
-        card.getChildren().addAll(swatch, textCol, editBtn, deleteBtn);
+        card.getChildren().addAll(swatch, textCol);
+
+        if (InnerMapRegistry.hasInnerMap(bp.getName())) {
+            Button innerMapBtn = createIconButton(
+                "M11.99 18.54l-7.37-5.73L3 14.07l9 7 9-7-1.63-1.27-7.38 5.74zM12 16l7.36-5.73L21 9l-9-7-9 7 1.63 1.27L12 16z",
+                "#0d9488",
+                "Floor Plan & Label Rooms"
+            );
+            innerMapBtn.setOnAction(e -> {
+                hide();
+                if (onOpenInnerMapAction != null) {
+                    onOpenInnerMapAction.accept(bp);
+                }
+            });
+            card.getChildren().add(innerMapBtn);
+        }
+
+        card.getChildren().addAll(editBtn, deleteBtn);
 
         // Hover effect on the card
         card.setOnMouseEntered(e -> {

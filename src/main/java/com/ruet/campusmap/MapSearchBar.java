@@ -1,8 +1,11 @@
 package com.ruet.campusmap;
 
 import com.ruet.campusmap.model.BuildingPolygon;
+import com.ruet.campusmap.model.RoomLabel;
+import com.ruet.campusmap.model.RoomLocation;
 import com.ruet.campusmap.model.SearchSuggestion;
 import com.ruet.campusmap.model.Teacher;
+import com.ruet.campusmap.service.RoomRegistry;
 import com.ruet.campusmap.service.TeacherDataLoader;
 import javafx.animation.Interpolator;
 import javafx.animation.KeyFrame;
@@ -36,7 +39,7 @@ import java.util.function.Consumer;
 /**
  * Component responsible for creating an authentic Google Maps-style
  * pill-rounded floating search bar with icons and dropdown suggestions
- * supporting both campus places and faculty/teachers.
+ * supporting campus places, faculty/teachers, and floor plan rooms.
  */
 public class MapSearchBar {
 
@@ -54,6 +57,7 @@ public class MapSearchBar {
 
     private Consumer<Teacher> onTeacherSelected;
     private Consumer<String> onLocationSelected;
+    private Consumer<RoomLocation> onRoomSelected;
     private boolean isDark = false;
     private final List<BuildingPolygon> registeredBuildings = new ArrayList<>();
 
@@ -199,7 +203,12 @@ public class MapSearchBar {
                     row.setAlignment(Pos.CENTER_LEFT);
                     row.setPadding(new Insets(4, 6, 4, 6));
 
-                    Label iconLabel = new Label(item.getType() == SearchSuggestion.Type.TEACHER ? "👨‍🏫" : "📍");
+                    String icon = switch (item.getType()) {
+                        case TEACHER -> "👨‍🏫";
+                        case ROOM -> "🚪";
+                        case LOCATION -> "📍";
+                    };
+                    Label iconLabel = new Label(icon);
                     iconLabel.setStyle("-fx-font-size: 13px;");
 
                     VBox textCol = new VBox(1);
@@ -212,12 +221,19 @@ public class MapSearchBar {
                     sub.setStyle("-fx-font-size: 11px; -fx-text-fill: " + (isDark ? "#9aa0a6;" : "#70757a;"));
                     textCol.getChildren().addAll(title, sub);
 
-                    Label badge = new Label(item.getType() == SearchSuggestion.Type.TEACHER ? "FACULTY" : "PLACE");
+                    String badgeText = switch (item.getType()) {
+                        case TEACHER -> "FACULTY";
+                        case ROOM -> "ROOM";
+                        case LOCATION -> "PLACE";
+                    };
+                    Label badge = new Label(badgeText);
                     badge.setStyle(
                         "-fx-font-size: 9px; -fx-font-weight: bold; -fx-padding: 2 6; -fx-background-radius: 6px; " +
-                        (item.getType() == SearchSuggestion.Type.TEACHER
-                            ? (isDark ? "-fx-background-color: #173154; -fx-text-fill: #8ab4f8;" : "-fx-background-color: #e8f0fe; -fx-text-fill: #1a73e8;")
-                            : (isDark ? "-fx-background-color: #35373a; -fx-text-fill: #9aa0a6;" : "-fx-background-color: #f1f3f4; -fx-text-fill: #5f6368;"))
+                        switch (item.getType()) {
+                            case TEACHER -> (isDark ? "-fx-background-color: #173154; -fx-text-fill: #8ab4f8;" : "-fx-background-color: #e8f0fe; -fx-text-fill: #1a73e8;");
+                            case ROOM -> (isDark ? "-fx-background-color: #0d3c26; -fx-text-fill: #81c995;" : "-fx-background-color: #e6f4ea; -fx-text-fill: #137333;");
+                            case LOCATION -> (isDark ? "-fx-background-color: #35373a; -fx-text-fill: #9aa0a6;" : "-fx-background-color: #f1f3f4; -fx-text-fill: #5f6368;");
+                        }
                     );
 
                     row.getChildren().addAll(iconLabel, textCol, badge);
@@ -255,6 +271,10 @@ public class MapSearchBar {
 
     public void setOnLocationSelected(Consumer<String> onLocationSelected) {
         this.onLocationSelected = onLocationSelected;
+    }
+
+    public void setOnRoomSelected(Consumer<RoomLocation> onRoomSelected) {
+        this.onRoomSelected = onRoomSelected;
     }
 
     public void applyTheme(boolean isDark) {
@@ -330,11 +350,26 @@ public class MapSearchBar {
                 for (Teacher t : facultyMatches) {
                     String sub = (t.getDesignation() != null ? t.getDesignation() : "") +
                         (t.getDepartment() != null ? " • " + t.getDepartment() : "") +
-                        (t.getBuildingName() != null ? " [" + t.getBuildingName() + "]" : "");
+                        (t.getBuildingName() != null ? " [" + t.getBuildingName() + "]" : "") +
+                        (t.getRoomNumber() != null ? " • " + t.getRoomNumber() : "");
                     matches.add(new SearchSuggestion(SearchSuggestion.Type.TEACHER, t.getName(), sub, t));
                 }
 
-                // 2. Search campus buildings (by name or code name)
+                // 2. Search inner rooms (room number, room name, type, occupants)
+                List<RoomLocation> roomMatches = RoomRegistry.searchRooms(query);
+                for (RoomLocation rl : roomMatches) {
+                    RoomLabel r = rl.room();
+                    String title = r.getRoomNumber() != null && !r.getRoomNumber().isBlank()
+                        ? (r.getName() != null && !r.getName().isBlank() ? "Room " + r.getRoomNumber() + " - " + r.getName() : "Room " + r.getRoomNumber())
+                        : (r.getName() != null ? r.getName() : "Room");
+                    String sub = rl.building().getBuildingName() + " • " + rl.floor().getFloorName();
+                    if (!r.getOccupants().isEmpty()) {
+                        sub += " • 👤 " + String.join(", ", r.getOccupants());
+                    }
+                    matches.add(new SearchSuggestion(SearchSuggestion.Type.ROOM, title, sub, rl));
+                }
+
+                // 3. Search campus buildings (by name or code name)
                 java.util.Set<String> matchedBuildingNames = new java.util.HashSet<>();
                 for (BuildingPolygon bp : registeredBuildings) {
                     if (bp == null || bp.getName() == null) continue;
@@ -350,7 +385,7 @@ public class MapSearchBar {
                     }
                 }
 
-                // 3. Search other campus landmarks / POIs
+                // 4. Search other campus landmarks / POIs
                 for (String locName : locationCoordinates.keySet()) {
                     if (!matchedBuildingNames.contains(locName.toLowerCase()) && locName.toLowerCase().contains(query)) {
                         matches.add(new SearchSuggestion(SearchSuggestion.Type.LOCATION, locName, "Campus Building / Landmark", locName));
@@ -399,6 +434,13 @@ public class MapSearchBar {
                     return;
                 }
 
+                List<RoomLocation> roomLocs = RoomRegistry.searchRooms(trimmed);
+                if (!roomLocs.isEmpty()) {
+                    RoomLocation rl = roomLocs.get(0);
+                    handleSuggestionChosen(new SearchSuggestion(SearchSuggestion.Type.ROOM, rl.room().getDisplayTitle(), rl.building().getBuildingName(), rl));
+                    return;
+                }
+
                 locationCoordinates.keySet().stream()
                     .filter(name -> name.equalsIgnoreCase(trimmed) || name.toLowerCase().contains(trimmed))
                     .findFirst()
@@ -419,6 +461,12 @@ public class MapSearchBar {
             }
             if (onTeacherSelected != null) {
                 onTeacherSelected.accept(teacher);
+            }
+        } else if (item.getType() == SearchSuggestion.Type.ROOM) {
+            RoomLocation roomLoc = (RoomLocation) item.getPayload();
+            searchField.setText(roomLoc.room().getDisplayTitle());
+            if (onRoomSelected != null) {
+                onRoomSelected.accept(roomLoc);
             }
         } else {
             String locName = (String) item.getPayload();

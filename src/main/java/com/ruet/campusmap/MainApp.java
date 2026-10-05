@@ -166,20 +166,59 @@ public class MainApp extends Application {
         // Dedicated Inner Map Viewer for multi-floor buildings
         InnerMapView innerMapView = new InnerMapView(settings);
 
+        Runnable hideMainUiForInnerMap = () -> {
+            buildingInfoCard.hide();
+            if (settingsCard.isVisible()) {
+                settingsCard.hide();
+                actionButtons.setSettingsActive(false);
+            }
+            brandBadge.getContainer().setVisible(false);
+            searchBar.getContainer().setVisible(false);
+            actionButtons.getContainer().setVisible(false);
+            bottomControls.getContainer().setVisible(false);
+            mapGroup.setVisible(false);
+        };
+
         java.util.function.Consumer<String> openInnerMap = (buildingName) -> {
+            innerMapView.setAdminMode(editorManager.isActive());
             if (innerMapView.openBuilding(buildingName)) {
-                buildingInfoCard.hide();
-                if (settingsCard.isVisible()) {
-                    settingsCard.hide();
-                    actionButtons.setSettingsActive(false);
-                }
-                brandBadge.getContainer().setVisible(false);
-                searchBar.getContainer().setVisible(false);
-                actionButtons.getContainer().setVisible(false);
-                bottomControls.getContainer().setVisible(false);
-                mapGroup.setVisible(false);
+                hideMainUiForInnerMap.run();
             }
         };
+
+        // When a room is chosen from search dropdown -> Jump directly to room on inner map
+        searchBar.setOnRoomSelected(roomLoc -> {
+            innerMapView.setAdminMode(editorManager.isActive());
+            if (innerMapView.openRoom(roomLoc)) {
+                hideMainUiForInnerMap.run();
+            }
+        });
+
+        // When viewing teacher card and user clicks "View Room on Floor Plan"
+        buildingInfoCard.setOnOpenRoom(roomLoc -> {
+            innerMapView.setAdminMode(editorManager.isActive());
+            if (innerMapView.openRoom(roomLoc)) {
+                hideMainUiForInnerMap.run();
+            }
+        });
+
+        // When admin clicks Floor Plan & Rooms in the admin buildings drawer
+        editorManager.setOnOpenInnerMap(bp -> {
+            innerMapView.setAdminMode(true);
+            innerMapView.setRoomEditMode(true);
+            if (innerMapView.openBuilding(bp.getName())) {
+                hideMainUiForInnerMap.run();
+            }
+        });
+
+        // Easy Admin Access directly from InnerMapView's top header bar
+        innerMapView.setOnAdminLoginRequested(() -> {
+            AdminLoginDialog.show(stage, () -> {
+                editorManager.activate();
+                innerMapView.setAdminMode(true);
+                innerMapView.setRoomEditMode(true);
+            });
+        });
 
         innerMapView.setOnBack(() -> {
             mapGroup.setVisible(true);

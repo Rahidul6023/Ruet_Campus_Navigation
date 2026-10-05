@@ -1,7 +1,9 @@
 package com.ruet.campusmap.view;
 
 import com.ruet.campusmap.model.BuildingPolygon;
+import com.ruet.campusmap.model.RoomLocation;
 import com.ruet.campusmap.model.Teacher;
+import com.ruet.campusmap.service.RoomRegistry;
 import com.ruet.campusmap.service.TeacherDataLoader;
 import javafx.animation.FadeTransition;
 import javafx.animation.Interpolator;
@@ -27,6 +29,8 @@ import javafx.scene.shape.SVGPath;
 import javafx.util.Duration;
 
 import java.util.List;
+import java.util.Optional;
+import java.util.function.Consumer;
 
 /**
  * Modern floating Google Maps-style place sheet that displays building or POI details
@@ -50,6 +54,7 @@ public class BuildingInfoCard {
     private final Separator divider;
     private final Label feedbackLabel;
     private java.util.function.Consumer<BuildingPolygon> onOpenInnerMap;
+    private Consumer<RoomLocation> onOpenRoom;
     private BuildingPolygon currentBuilding;
     private boolean isDark = false;
     private ParallelTransition currentAnim;
@@ -246,12 +251,14 @@ public class BuildingInfoCard {
             for (Teacher t : teachersInBuilding) {
                 HBox row = new HBox(6);
                 row.setAlignment(Pos.CENTER_LEFT);
+                row.setCursor(javafx.scene.Cursor.HAND);
                 Label tName = new Label("• " + t.getName());
                 tName.setStyle("-fx-font-size: 11px; -fx-text-fill: " + (isDark ? "#e8eaed;" : "#202124;"));
                 HBox.setHgrow(tName, Priority.ALWAYS);
                 Label tRoom = new Label(t.getRoomNumber() != null ? t.getRoomNumber() : "");
                 tRoom.setStyle("-fx-font-size: 10px; -fx-font-weight: bold; -fx-text-fill: " + (isDark ? "#8ab4f8;" : "#1a73e8;"));
                 row.getChildren().addAll(tName, tRoom);
+                row.setOnMouseClicked(e -> showTeacher(t, () -> showBuilding(building)));
                 facultyBox.getChildren().add(row);
             }
             dynamicSection.getChildren().add(facultyBox);
@@ -305,7 +312,17 @@ public class BuildingInfoCard {
         VBox roomTextCol = new VBox(1);
         Label roomTitle = new Label("Office / Room Number");
         roomTitle.setStyle("-fx-font-size: 10px; -fx-text-fill: " + (isDark ? "#9aa0a6;" : "#70757a;") + " -fx-font-weight: bold;");
-        Label roomValue = new Label(teacher.getRoomNumber() != null ? teacher.getRoomNumber() : "Main Office");
+
+        Optional<RoomLocation> roomLoc = RoomRegistry.findRoom(teacher.getBuildingName(), teacher.getRoomNumber());
+        if (roomLoc.isEmpty()) {
+            roomLoc = RoomRegistry.findRoom(teacher.getBuildingName(), teacher.getName());
+        }
+
+        String roomDisplay = teacher.getRoomNumber() != null ? teacher.getRoomNumber() : "Main Office";
+        if (roomLoc.isPresent()) {
+            roomDisplay += " (" + roomLoc.get().floor().getFloorName() + ")";
+        }
+        Label roomValue = new Label(roomDisplay);
         roomValue.setStyle("-fx-font-size: 12px; -fx-font-weight: bold; -fx-text-fill: " + (isDark ? "#8ab4f8;" : "#1a73e8;"));
         roomTextCol.getChildren().addAll(roomTitle, roomValue);
         roomRow.getChildren().addAll(roomIcon, roomTextCol);
@@ -328,6 +345,23 @@ public class BuildingInfoCard {
         });
 
         dynamicSection.getChildren().addAll(officeCard, locateBtn);
+
+        if (roomLoc.isPresent()) {
+            RoomLocation targetLoc = roomLoc.get();
+            Button viewRoomBtn = new Button("🚪 View Room on Floor Plan (" + targetLoc.room().getDisplayTitle() + ")");
+            viewRoomBtn.setMaxWidth(Double.MAX_VALUE);
+            viewRoomBtn.setStyle(
+                "-fx-background-color: #1a73e8; -fx-text-fill: white; " +
+                "-fx-font-size: 12px; -fx-font-weight: bold; -fx-background-radius: 8px; " +
+                "-fx-cursor: hand; -fx-padding: 7 12;"
+            );
+            viewRoomBtn.setOnAction(e -> {
+                if (onOpenRoom != null) {
+                    onOpenRoom.accept(targetLoc);
+                }
+            });
+            dynamicSection.getChildren().add(viewRoomBtn);
+        }
 
         directionsBtn.setOnAction(e -> {
             if (onNavigateToBuilding != null) {
@@ -491,6 +525,10 @@ public class BuildingInfoCard {
 
     public void setOnOpenInnerMap(java.util.function.Consumer<BuildingPolygon> callback) {
         this.onOpenInnerMap = callback;
+    }
+
+    public void setOnOpenRoom(Consumer<RoomLocation> callback) {
+        this.onOpenRoom = callback;
     }
 
     public VBox getContainer() {

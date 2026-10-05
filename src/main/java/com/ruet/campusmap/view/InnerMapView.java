@@ -1,9 +1,13 @@
 package com.ruet.campusmap.view;
 
+import com.ruet.campusmap.editor.EditRoomDialog;
 import com.ruet.campusmap.model.AppSettings;
 import com.ruet.campusmap.model.BuildingInnerMap;
 import com.ruet.campusmap.model.FloorPlan;
+import com.ruet.campusmap.model.RoomLabel;
+import com.ruet.campusmap.model.RoomLocation;
 import com.ruet.campusmap.service.InnerMapRegistry;
+import com.ruet.campusmap.service.RoomRegistry;
 import javafx.animation.FadeTransition;
 import javafx.animation.Interpolator;
 import javafx.geometry.Bounds;
@@ -33,7 +37,8 @@ import java.util.List;
 /**
  * Full-screen interactive indoor floor plan explorer for campus buildings.
  * Supports automatic fit-to-screen overview, wide-range smooth zooming,
- * free panning, multi-floor switching, and responsive dark/light theme integration.
+ * free panning, multi-floor switching, room label display & editing,
+ * and responsive dark/light theme integration.
  */
 public class InnerMapView {
 
@@ -43,10 +48,16 @@ public class InnerMapView {
     private final Group floorMapGroup;
     private final StackPane viewport;
 
+    private final RoomLabelsLayer roomLabelsLayer;
+    private final List<RoomLabel> currentRooms = new ArrayList<>();
+
     private final Label buildingTitleLabel;
     private final Label floorBadge;
     private final Label floorDescLabel;
+    private final Button editRoomsBtn;
     private final HBox topHeaderBar;
+    private final HBox editModeBanner;
+    private final Label editInstructionLabel;
     private final VBox floorSwitcherBox;
     private final HBox zoomControlsBox;
     private final Label zoomPercentLabel;
@@ -56,6 +67,9 @@ public class InnerMapView {
     private BuildingInnerMap currentBuilding;
     private FloorPlan currentFloor;
     private Runnable onBackCallback;
+    private Runnable onAdminLoginRequested;
+    private boolean adminMode = false;
+    private boolean roomEditMode = false;
 
     // Reserved layout gaps around the inner map for UI controls
     // Top and bottom have space for the header bar and zoom controls
@@ -97,14 +111,17 @@ public class InnerMapView {
             }
         });
 
-        floorMapGroup = new Group(floorWebView);
+        roomLabelsLayer = new RoomLabelsLayer(mapWidth, mapHeight);
+        roomLabelsLayer.setCallbacks(this::openEditRoomDialog, this::handleRoomMoved);
+
+        floorMapGroup = new Group(floorWebView, roomLabelsLayer.getPane());
         viewport = new StackPane(floorMapGroup);
         viewport.setStyle("-fx-background-color: transparent;");
         viewport.setMinSize(0, 0);
         viewport.setPrefSize(Region.USE_COMPUTED_SIZE, Region.USE_COMPUTED_SIZE);
         viewport.setMaxSize(Double.MAX_VALUE, Double.MAX_VALUE);
 
-        // --- 2. Top Header Bar (Back button + Building info + Floor description) ---
+        // --- 2. Top Header Bar (Back button + Building info + Floor description + Label Rooms btn) ---
         SVGPath backArrow = new SVGPath();
         backArrow.setContent("M20 11H7.83l5.59-5.59L12 4l-8 8 8 8 1.41-1.41L7.83 13H20v-2z");
         backArrow.setScaleX(0.85);
@@ -138,7 +155,19 @@ public class InnerMapView {
         Region headerSpacer = new Region();
         HBox.setHgrow(headerSpacer, Priority.ALWAYS);
 
-        topHeaderBar = new HBox(14, backBtn, titleDetails, headerSpacer);
+        editRoomsBtn = new Button();
+        updateEditRoomsBtn();
+        editRoomsBtn.setOnAction(e -> {
+            if (!adminMode) {
+                if (onAdminLoginRequested != null) {
+                    onAdminLoginRequested.run();
+                }
+            } else {
+                setRoomEditMode(!roomEditMode);
+            }
+        });
+
+        topHeaderBar = new HBox(14, backBtn, titleDetails, headerSpacer, editRoomsBtn);
         topHeaderBar.setAlignment(Pos.CENTER_LEFT);
         topHeaderBar.setPadding(new Insets(10, 18, 10, 14));
         topHeaderBar.setEffect(new DropShadow(16, 0, 4, Color.rgb(0, 0, 0, 0.16)));
@@ -147,7 +176,51 @@ public class InnerMapView {
         StackPane.setAlignment(topHeaderBar, Pos.TOP_LEFT);
         StackPane.setMargin(topHeaderBar, new Insets(18, 20, 0, 20));
 
-        // --- 3. Floor Switcher (Google Maps Style floating vertical pill on right side) ---
+        // --- 3. Room Edit Mode Floating Banner ---
+        editModeBanner = new HBox(14);
+        editModeBanner.setAlignment(Pos.CENTER);
+        editModeBanner.setPadding(new Insets(8, 18, 8, 18));
+        editModeBanner.setVisible(false);
+        editModeBanner.setManaged(false);
+        editModeBanner.setEffect(new DropShadow(16, 0, 4, Color.rgb(0, 0, 0, 0.22)));
+        editModeBanner.setMaxSize(Region.USE_PREF_SIZE, Region.USE_PREF_SIZE);
+
+        Label editBadge = new Label("✏️ ROOM EDIT MODE");
+        editBadge.setStyle("-fx-font-size: 11px; -fx-font-weight: bold; -fx-background-color: #e8f0fe; -fx-text-fill: #1a73e8; -fx-background-radius: 10px; -fx-padding: 3 8;");
+
+        editInstructionLabel = new Label("Click map to add room • Drag badges to move • Click badge to edit");
+        editInstructionLabel.setStyle("-fx-font-size: 12px; -fx-font-weight: 500; -fx-font-family: 'Segoe UI', Roboto, sans-serif;");
+
+        Button addRoomDirectBtn = new Button("+ Add Room");
+        addRoomDirectBtn.setStyle(
+            "-fx-background-color: #1a73e8; -fx-text-fill: white; -fx-font-weight: bold; " +
+            "-fx-background-radius: 16px; -fx-padding: 5 14; -fx-cursor: hand; -fx-font-size: 12px;"
+        );
+        addRoomDirectBtn.setOnAction(e -> {
+            double cx = mapWidth / 2.0;
+            double cy = mapHeight / 2.0;
+            try {
+                Point2D p = floorMapGroup.sceneToLocal(getViewWidth() / 2.0, getViewHeight() / 2.0);
+                if (p != null && p.getX() >= 0 && p.getY() >= 0 && p.getX() <= mapWidth && p.getY() <= mapHeight) {
+                    cx = p.getX();
+                    cy = p.getY();
+                }
+            } catch (Exception ignored) {}
+            openAddRoomDialog(cx, cy);
+        });
+
+        Button exitEditDirectBtn = new Button("✓ Done");
+        exitEditDirectBtn.setStyle(
+            "-fx-background-color: #34a853; -fx-text-fill: white; -fx-font-weight: bold; " +
+            "-fx-background-radius: 16px; -fx-padding: 5 14; -fx-cursor: hand; -fx-font-size: 12px;"
+        );
+        exitEditDirectBtn.setOnAction(e -> setRoomEditMode(false));
+
+        editModeBanner.getChildren().addAll(editBadge, editInstructionLabel, addRoomDirectBtn, exitEditDirectBtn);
+        StackPane.setAlignment(editModeBanner, Pos.TOP_CENTER);
+        StackPane.setMargin(editModeBanner, new Insets(84, 0, 0, 0));
+
+        // --- 4. Floor Switcher (Google Maps Style floating vertical pill on right side) ---
         floorSwitcherBox = new VBox(8);
         floorSwitcherBox.setAlignment(Pos.CENTER);
         floorSwitcherBox.setPadding(new Insets(8, 6, 8, 6));
@@ -157,7 +230,7 @@ public class InnerMapView {
         StackPane.setAlignment(floorSwitcherBox, Pos.CENTER_RIGHT);
         StackPane.setMargin(floorSwitcherBox, new Insets(0, 24, 0, 0));
 
-        // --- 4. Floating Zoom Controls (+ / - / Reset / Zoom %) ---
+        // --- 5. Floating Zoom Controls (+ / - / Reset / Zoom %) ---
         Button zoomInBtn = createCircleButton("+", "Zoom In (+15%)", () -> zoomRelative(1.15));
         Button zoomOutBtn = createCircleButton("−", "Zoom Out (-15%)", () -> zoomRelative(0.85));
         Button resetZoomBtn = createCircleButton("⊙", "Fit entire floor plan to window", this::fitToScreen);
@@ -177,7 +250,7 @@ public class InnerMapView {
         StackPane.setAlignment(zoomControlsBox, Pos.BOTTOM_RIGHT);
         StackPane.setMargin(zoomControlsBox, new Insets(0, 24, 24, 0));
 
-        container.getChildren().addAll(viewport, topHeaderBar, floorSwitcherBox, zoomControlsBox);
+        container.getChildren().addAll(viewport, topHeaderBar, editModeBanner, floorSwitcherBox, zoomControlsBox);
 
         // Bind Pan and Zoom interactions
         setupPanZoomInteractions();
@@ -234,7 +307,13 @@ public class InnerMapView {
     }
 
     private void setupPanZoomInteractions() {
+        final double[] pressPoint = new double[2];
+        final boolean[] wasDragged = new boolean[]{false};
+
         container.setOnMousePressed(event -> {
+            pressPoint[0] = event.getSceneX();
+            pressPoint[1] = event.getSceneY();
+            wasDragged[0] = false;
             if (event.getTarget() == container || event.getTarget() == viewport || event.getTarget() == floorMapGroup) {
                 if (isPannable()) {
                     container.setCursor(Cursor.CLOSED_HAND);
@@ -247,7 +326,9 @@ public class InnerMapView {
         });
 
         container.setOnMouseReleased(event -> {
-            if (isPannable()) {
+            if (roomEditMode) {
+                container.setCursor(Cursor.CROSSHAIR);
+            } else if (isPannable()) {
                 container.setCursor(Cursor.OPEN_HAND);
             } else {
                 container.setCursor(Cursor.DEFAULT);
@@ -255,7 +336,9 @@ public class InnerMapView {
         });
 
         container.setOnMouseMoved(event -> {
-            if (isPannable()) {
+            if (roomEditMode) {
+                container.setCursor(Cursor.CROSSHAIR);
+            } else if (isPannable()) {
                 container.setCursor(Cursor.OPEN_HAND);
             } else {
                 container.setCursor(Cursor.DEFAULT);
@@ -263,6 +346,9 @@ public class InnerMapView {
         });
 
         container.setOnMouseDragged(event -> {
+            if (Math.hypot(event.getSceneX() - pressPoint[0], event.getSceneY() - pressPoint[1]) > 5) {
+                wasDragged[0] = true;
+            }
             double deltaX = event.getSceneX() - lastMouseX;
             double deltaY = event.getSceneY() - lastMouseY;
             floorMapGroup.setTranslateX(floorMapGroup.getTranslateX() + deltaX);
@@ -279,8 +365,17 @@ public class InnerMapView {
         });
 
         container.setOnMouseClicked(event -> {
-            if (event.getClickCount() == 2 && event.getButton() == MouseButton.PRIMARY) {
-                zoomAtScenePoint(1.35, event.getSceneX(), event.getSceneY());
+            if (event.getButton() == MouseButton.PRIMARY) {
+                if (roomEditMode && !wasDragged[0] && event.getClickCount() == 1) {
+                    Point2D mapPt = roomLabelsLayer.sceneToMap(event.getSceneX(), event.getSceneY());
+                    if (mapPt != null) {
+                        openAddRoomDialog(mapPt.getX(), mapPt.getY());
+                        return;
+                    }
+                }
+                if (!roomEditMode && event.getClickCount() == 2) {
+                    zoomAtScenePoint(1.35, event.getSceneX(), event.getSceneY());
+                }
             }
         });
     }
@@ -335,6 +430,7 @@ public class InnerMapView {
 
             floorMapGroup.setScaleX(newScale);
             floorMapGroup.setScaleY(newScale);
+            roomLabelsLayer.setMapScale(newScale);
 
             Point2D afterScene = floorMapGroup.localToScene(mouseLocal);
             floorMapGroup.setTranslateX(floorMapGroup.getTranslateX() - (afterScene.getX() - mouseScene.getX()));
@@ -367,6 +463,7 @@ public class InnerMapView {
 
         floorMapGroup.setScaleX(fitScale);
         floorMapGroup.setScaleY(fitScale);
+        roomLabelsLayer.setMapScale(fitScale);
 
         // Center map within the available gap-bounded area
         double baseTx = (GAP_LEFT - GAP_RIGHT) / 2.0;
@@ -423,6 +520,13 @@ public class InnerMapView {
      * Opens the inner map view for a building by name or alias.
      */
     public boolean openBuilding(String buildingName) {
+        return openBuilding(buildingName, null, null);
+    }
+
+    /**
+     * Opens the inner map view for a building, selecting a specific floor and optionally focusing on a room.
+     */
+    public boolean openBuilding(String buildingName, String targetFloorId, String highlightRoomId) {
         BuildingInnerMap bim = InnerMapRegistry.findInnerMap(buildingName);
         if (bim == null || bim.getFloors().isEmpty()) {
             return false;
@@ -434,11 +538,24 @@ public class InnerMapView {
         // Build floor switcher buttons (sorted top floor to bottom floor)
         buildFloorSwitcher();
 
-        // Load default or first floor
-        FloorPlan defaultFloor = bim.getDefaultFloor();
-        selectFloor(defaultFloor != null ? defaultFloor : bim.getFloors().get(0));
+        // Determine floor to load: targetFloorId if specified, else default or first floor
+        FloorPlan floorToSelect = null;
+        if (targetFloorId != null) {
+            for (FloorPlan fp : bim.getFloors()) {
+                if (fp.getFloorId().equalsIgnoreCase(targetFloorId)) {
+                    floorToSelect = fp;
+                    break;
+                }
+            }
+        }
+        if (floorToSelect == null) {
+            FloorPlan defaultFloor = bim.getDefaultFloor();
+            floorToSelect = defaultFloor != null ? defaultFloor : bim.getFloors().get(0);
+        }
 
-        // Immediately fit to screen BEFORE animation begins so it never shows at 1.0!
+        selectFloor(floorToSelect);
+
+        // Immediately fit to screen BEFORE animation begins
         fitToScreen();
 
         // Animate appearance
@@ -453,9 +570,58 @@ public class InnerMapView {
         fade.setInterpolator(Interpolator.EASE_OUT);
         fade.play();
 
-        // Re-fit after layout completes in next pulse
-        javafx.application.Platform.runLater(this::fitToScreen);
+        // Re-fit or focus on room after layout completes in next pulse
+        if (highlightRoomId != null) {
+            javafx.application.Platform.runLater(() -> {
+                RoomLabel match = currentRooms.stream()
+                    .filter(r -> (r.getId() != null && r.getId().equals(highlightRoomId)) ||
+                                (r.getRoomNumber() != null && r.getRoomNumber().equalsIgnoreCase(highlightRoomId)))
+                    .findFirst().orElse(null);
+                if (match != null) {
+                    focusOnRoom(match);
+                } else {
+                    fitToScreen();
+                }
+            });
+        } else {
+            javafx.application.Platform.runLater(this::fitToScreen);
+        }
         return true;
+    }
+
+    /**
+     * Directly opens the building and floor for a given RoomLocation and pulses the room badge.
+     */
+    public boolean openRoom(RoomLocation loc) {
+        if (loc == null || loc.building() == null) return false;
+        String bName = loc.building().getBuildingName();
+        String floorId = loc.floor() != null ? loc.floor().getFloorId() : null;
+        String roomId = loc.room() != null ? loc.room().getId() : null;
+        return openBuilding(bName, floorId, roomId);
+    }
+
+    /**
+     * Centers the viewport smoothly on a specific room and highlights it.
+     */
+    public void focusOnRoom(RoomLabel room) {
+        if (room == null) return;
+        double targetScale = Math.max(1.2, getMinScale() * 1.8);
+        floorMapGroup.setScaleX(targetScale);
+        floorMapGroup.setScaleY(targetScale);
+        updateZoomLabel(targetScale);
+        roomLabelsLayer.setMapScale(targetScale);
+
+        double baseTx = (GAP_LEFT - GAP_RIGHT) / 2.0;
+        double baseTy = (GAP_TOP - GAP_BOTTOM) / 2.0;
+
+        double offsetX = (room.getX() - (mapWidth / 2.0)) * targetScale;
+        double offsetY = (room.getY() - (mapHeight / 2.0)) * targetScale;
+
+        floorMapGroup.setTranslateX(baseTx - offsetX);
+        floorMapGroup.setTranslateY(baseTy - offsetY);
+        clampPosition();
+
+        roomLabelsLayer.highlight(room);
     }
 
     private void buildFloorSwitcher() {
@@ -498,6 +664,9 @@ public class InnerMapView {
 
         updateFloorButtonsStyle();
 
+        // Load rooms for this floor
+        loadCurrentFloorRooms();
+
         // Load SVG map content
         String svgContent = InnerMapRegistry.loadSvgContent(floor.getMapFile());
         String mapCss = "* { margin: 0; padding: 0; box-sizing: border-box; } " +
@@ -512,6 +681,116 @@ public class InnerMapView {
                 applyWebTheme();
             }
         });
+    }
+
+    private void loadCurrentFloorRooms() {
+        currentRooms.clear();
+        if (currentBuilding != null && currentFloor != null) {
+            currentRooms.addAll(RoomRegistry.loadRooms(currentBuilding.getBuildingId(), currentFloor.getFloorId()));
+        }
+        roomLabelsLayer.setRooms(currentRooms);
+    }
+
+    private void saveCurrentFloorRooms() {
+        if (currentBuilding != null && currentFloor != null) {
+            RoomRegistry.saveRooms(currentBuilding.getBuildingId(), currentFloor.getFloorId(), currentRooms);
+        }
+    }
+
+    private void openAddRoomDialog(double x, double y) {
+        String floorTitle = (currentBuilding != null ? currentBuilding.getBuildingName() : "Building") +
+                            " • " + (currentFloor != null ? currentFloor.getFloorName() : "Floor");
+        EditRoomDialog.show(null, x, y, floorTitle, room -> {
+            currentRooms.add(room);
+            roomLabelsLayer.setRooms(currentRooms);
+            saveCurrentFloorRooms();
+        }, null);
+    }
+
+    private void openEditRoomDialog(RoomLabel room) {
+        if (room == null) return;
+        String floorTitle = (currentBuilding != null ? currentBuilding.getBuildingName() : "Building") +
+                            " • " + (currentFloor != null ? currentFloor.getFloorName() : "Floor");
+        EditRoomDialog.show(room, room.getX(), room.getY(), floorTitle,
+            updated -> {
+                roomLabelsLayer.setRooms(currentRooms);
+                saveCurrentFloorRooms();
+            },
+            () -> {
+                currentRooms.remove(room);
+                roomLabelsLayer.setRooms(currentRooms);
+                saveCurrentFloorRooms();
+            }
+        );
+    }
+
+    private void handleRoomMoved(RoomLabel room) {
+        saveCurrentFloorRooms();
+    }
+
+    public void setAdminMode(boolean adminMode) {
+        this.adminMode = adminMode;
+        if (!adminMode && roomEditMode) {
+            setRoomEditMode(false);
+        }
+        updateEditRoomsBtn();
+    }
+
+    public boolean isAdminMode() {
+        return adminMode;
+    }
+
+    public void setRoomEditMode(boolean editMode) {
+        this.roomEditMode = editMode;
+        editModeBanner.setVisible(editMode);
+        editModeBanner.setManaged(editMode);
+        roomLabelsLayer.setEditMode(editMode);
+        updateEditRoomsBtn();
+        if (editMode) {
+            container.setCursor(Cursor.CROSSHAIR);
+        } else {
+            container.setCursor(Cursor.DEFAULT);
+        }
+    }
+
+    public boolean isRoomEditMode() {
+        return roomEditMode;
+    }
+
+    public void setOnAdminLoginRequested(Runnable r) {
+        this.onAdminLoginRequested = r;
+    }
+
+    private void updateEditRoomsBtn() {
+        if (editRoomsBtn == null) return;
+        if (!adminMode) {
+            editRoomsBtn.setText("🏷️ Label Rooms (Admin)");
+            editRoomsBtn.setStyle(
+                "-fx-font-size: 12px; -fx-font-weight: bold; " +
+                "-fx-background-color: " + (isDark ? "#3c4043;" : "#f1f3f4;") +
+                "-fx-text-fill: " + (isDark ? "#8ab4f8;" : "#1a73e8;") +
+                "-fx-background-radius: 18px; -fx-cursor: hand; -fx-padding: 6 12; " +
+                "-fx-border-color: " + (isDark ? "#5f6368;" : "#dadce0;") +
+                "-fx-border-radius: 18px; -fx-border-width: 1px;"
+            );
+            Tooltip.install(editRoomsBtn, new Tooltip("Login as Admin to label and manage floor rooms"));
+        } else if (roomEditMode) {
+            editRoomsBtn.setText("✓ Done Editing");
+            editRoomsBtn.setStyle(
+                "-fx-font-size: 12px; -fx-font-weight: bold; " +
+                "-fx-background-color: #34a853; -fx-text-fill: white; " +
+                "-fx-background-radius: 18px; -fx-cursor: hand; -fx-padding: 6 14;"
+            );
+            Tooltip.install(editRoomsBtn, new Tooltip("Exit room editing mode"));
+        } else {
+            editRoomsBtn.setText("✏️ Edit Floor Labels");
+            editRoomsBtn.setStyle(
+                "-fx-font-size: 12px; -fx-font-weight: bold; " +
+                "-fx-background-color: #1a73e8; -fx-text-fill: white; " +
+                "-fx-background-radius: 18px; -fx-cursor: hand; -fx-padding: 6 14;"
+            );
+            Tooltip.install(editRoomsBtn, new Tooltip("Enter edit mode to add, move, or rename rooms"));
+        }
     }
 
     private void updateFloorButtonsStyle() {
@@ -546,6 +825,9 @@ public class InnerMapView {
 
     public void close() {
         if (!container.isVisible()) return;
+        if (roomEditMode) {
+            setRoomEditMode(false);
+        }
 
         FadeTransition fade = new FadeTransition(Duration.millis(200), container);
         fade.setFromValue(container.getOpacity());
@@ -572,6 +854,21 @@ public class InnerMapView {
     public void applyTheme(boolean isDark) {
         this.isDark = isDark;
         container.setStyle(isDark ? "-fx-background-color: #1a1d24;" : "-fx-background-color: #f1f3f4;");
+
+        roomLabelsLayer.applyTheme(isDark);
+        updateEditRoomsBtn();
+
+        if (editModeBanner != null) {
+            editModeBanner.setStyle(
+                "-fx-background-color: " + (isDark ? "rgba(32, 33, 36, 0.96);" : "rgba(255, 255, 255, 0.96);") +
+                "-fx-background-radius: 20px; " +
+                "-fx-border-color: " + (isDark ? "#3c4043;" : "#dadce0;") +
+                "-fx-border-radius: 20px; -fx-border-width: 1px;"
+            );
+        }
+        if (editInstructionLabel != null) {
+            editInstructionLabel.setTextFill(Color.web(isDark ? "#e8eaed" : "#202124"));
+        }
 
         // Top bar
         topHeaderBar.setStyle(

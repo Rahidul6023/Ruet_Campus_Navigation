@@ -1,0 +1,103 @@
+[
+  {
+    "id": "cse-g-101",
+    "roomNumber": "101",
+    "name": "Amphitheater / Seminar Hall",
+    "type": "Seminar Room",
+    "description": "Large auditorium for seminars, workshops and presentations",
+    "x": 1300.0,
+    "y": 257.0,
+    "visibleToUsers": true,
+    "occupants": []
+  },
+  {
+    "id": "cse-g-102",
+    "roomNumber": "102",
+    "name": "Classroom 102",
+    "type": "Classroom",
+    "description": "Undergraduate lecture room with multimedia projector",
+    "x": 1001.0,
+    "y": 257.0,
+    "visibleToUsers": true,
+    "occupants": []
+  },
+  {
+    "id": "cse-g-103",
+    "roomNumber": "103",
+    "name": "Classroom 103",
+    "type": "Classroom",
+    "description": "Multimedia theory classroom",
+    "x": 696.0,
+    "y": 257.0,
+    "visibleToUsers": true,
+    "occupants": []
+  },
+  {
+    "id": "cse-g-104",
+    "roomNumber": "104",
+    "name": "Classroom 104",
+    "type": "Classroom",
+    "description": "Lecture room",
+    "x": 390.0,
+    "y": 257.0,
+    "visibleToUsers": true,
+    "occupants": []
+  },
+  {
+    "id": "cse-g-105",
+    "roomNumber": "105",
+    "name": "Department Office",
+    "type": "Administrative",
+    "description": "General administration, inquiries and student affairs",
+    "x": 184.0,
+    "y": 257.0,
+    "visibleToUsers": true,
+    "occupants": []
+  },
+  {
+    "id": "cse-g-122",
+    "roomNumber": "122",
+    "name": "Programming Lab 1",
+    "type": "Lab",
+    "description": "60 modern PCs for programming practice and contests",
+    "x": 411.0,
+    "y": 1455.0,
+    "visibleToUsers": true,
+    "occupants": []
+  },
+  {
+    "id": "cse-g-123",
+    "roomNumber": "123",
+    "name": "Digital Logic Design Lab",
+    "type": "Lab",
+    "description": "Hardware trainer boards and logic analyzers",
+    "x": 710.0,
+    "y": 1452.0,
+    "visibleToUsers": true,
+    "occupants": []
+  },
+  {
+    "id": "cse-g-124",
+    "roomNumber": "124",
+    "name": "Microprocessor Lab",
+    "type": "Lab",
+    "description": "Embedded systems and microprocessor development kits",
+    "x": 1010.0,
+    "y": 1452.0,
+    "visibleToUsers": true,
+    "occupants": []
+  },
+  {
+    "id": "cse-g-132",
+    "roomNumber": "132",
+    "name": "Head of Department Suite",
+    "type": "Head Office",
+    "description": "HOD Executive Chamber and Conference Area",
+    "x": 1655.0,
+    "y": 580.0,
+    "visibleToUsers": true,
+    "occupants": [
+      "Dr. Md. Al Mamun"
+    ]
+  }
+]
