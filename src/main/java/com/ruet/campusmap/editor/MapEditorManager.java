@@ -5,6 +5,7 @@ import com.google.gson.GsonBuilder;
 import com.ruet.campusmap.model.BuildingPolygon;
 import com.ruet.campusmap.model.Teacher;
 import com.ruet.campusmap.service.TeacherDataLoader;
+import com.ruet.campusmap.view.BuildingLabelsLayer;
 import javafx.geometry.Insets;
 import javafx.geometry.Orientation;
 import javafx.geometry.Point2D;
@@ -86,15 +87,21 @@ public class MapEditorManager {
     private AdminTeachersDrawer teachersDrawer;
 
     private final java.util.function.Consumer<BuildingPolygon> onBuildingSelect;
+    private final BuildingLabelsLayer buildingLabelsLayer;
 
     public MapEditorManager(StackPane root, Pane polygonLayer) {
-        this(root, polygonLayer, null);
+        this(root, polygonLayer, null, null);
     }
 
     public MapEditorManager(StackPane root, Pane polygonLayer, java.util.function.Consumer<BuildingPolygon> onBuildingSelect) {
+        this(root, polygonLayer, onBuildingSelect, null);
+    }
+
+    public MapEditorManager(StackPane root, Pane polygonLayer, java.util.function.Consumer<BuildingPolygon> onBuildingSelect, BuildingLabelsLayer buildingLabelsLayer) {
         this.root = root;
         this.polygonLayer = polygonLayer;
         this.onBuildingSelect = onBuildingSelect;
+        this.buildingLabelsLayer = buildingLabelsLayer;
 
         // Load existing saved buildings so subsequent saves don't overwrite them
         List<BuildingPolygon> existing = com.ruet.campusmap.service.PolygonDataLoader.loadBuildingPolygons();
@@ -693,6 +700,10 @@ public class MapEditorManager {
             }, showAdminBoxes);
             polygonLayer.getChildren().add(finalPoly);
 
+            if (buildingLabelsLayer != null) {
+                buildingLabelsLayer.addPolygonLabel(bp);
+            }
+
             resetDrawingState();
             buildingsDrawer.refreshData(savedBuildings);
             updateLayersBtn();
@@ -814,6 +825,9 @@ public class MapEditorManager {
                 bp.setVisibleToUsers(visibleToUsers);
 
                 refreshPolygonVisuals();
+                if (buildingLabelsLayer != null) {
+                    buildingLabelsLayer.updatePolygonLabel(bp);
+                }
                 buildingsDrawer.refreshData(savedBuildings);
 
                 if (onBuildingSelect != null) {
@@ -823,6 +837,9 @@ public class MapEditorManager {
             () -> {
                 savedBuildings.remove(bp);
                 polygonLayer.getChildren().remove(poly);
+                if (buildingLabelsLayer != null) {
+                    buildingLabelsLayer.removePolygonLabel(bp);
+                }
                 buildingsDrawer.refreshData(savedBuildings);
                 updateLayersBtn();
             }
@@ -840,6 +857,9 @@ public class MapEditorManager {
             Polygon poly = findPolygonNode(bp);
             if (poly != null) {
                 polygonLayer.getChildren().remove(poly);
+            }
+            if (buildingLabelsLayer != null) {
+                buildingLabelsLayer.removePolygonLabel(bp);
             }
             buildingsDrawer.refreshData(savedBuildings);
             updateLayersBtn();
