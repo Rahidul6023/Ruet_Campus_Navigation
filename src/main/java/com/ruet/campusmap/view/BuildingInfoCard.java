@@ -55,6 +55,7 @@ public class BuildingInfoCard {
     private final Label feedbackLabel;
     private java.util.function.Consumer<BuildingPolygon> onOpenInnerMap;
     private Consumer<RoomLocation> onOpenRoom;
+    private Runnable onCloseCallback;
     private BuildingPolygon currentBuilding;
     private boolean isDark = false;
     private ParallelTransition currentAnim;
@@ -372,6 +373,101 @@ public class BuildingInfoCard {
         animateShow();
     }
 
+    public void showRoom(RoomLocation roomLoc, Runnable onEnterBuilding) {
+        if (roomLoc == null || roomLoc.room() == null) return;
+        this.currentBuilding = null;
+        innerMapBtn.setVisible(false);
+        innerMapBtn.setManaged(false);
+
+        com.ruet.campusmap.model.RoomLabel r = roomLoc.room();
+        String roomNum = r.getRoomNumber() != null ? r.getRoomNumber().trim() : "";
+        String roomName = (r.getName() != null && !r.getName().isBlank()) ? r.getName().trim() : ("Room " + roomNum);
+
+        String title = !roomNum.isBlank() && !roomName.equalsIgnoreCase(roomNum)
+            ? ("Room " + roomNum + " • " + roomName)
+            : roomName;
+        titleLabel.setText(title);
+
+        String typeStr = r.getType() != null && !r.getType().isBlank() ? r.getType() : "Room";
+        String catIcon = switch (typeStr.toLowerCase()) {
+            case "lab" -> "🔬 ";
+            case "classroom" -> "📚 ";
+            case "faculty office", "head office" -> "👨‍🏫 ";
+            case "prayer room" -> "🕌 ";
+            case "library" -> "📖 ";
+            case "washroom" -> "🚻 ";
+            default -> "🚪 ";
+        };
+        categoryBadge.setText((catIcon + typeStr).toUpperCase());
+
+        String bName = roomLoc.building() != null ? roomLoc.building().getBuildingName() : "Campus Building";
+        String fName = roomLoc.floor() != null ? roomLoc.floor().getFloorName() : "Floor Plan";
+        subtitleLabel.setText(bName + " • " + fName);
+
+        dynamicSection.getChildren().clear();
+
+        VBox detailsBox = new VBox(6);
+        detailsBox.setPadding(new Insets(10, 12, 10, 12));
+        detailsBox.setStyle(
+            "-fx-background-color: " + (isDark ? "#2d2f31;" : "#f8f9fa;") +
+            "-fx-background-radius: 10px; -fx-border-color: " + (isDark ? "#3c4043;" : "#dadce0;") +
+            "-fx-border-radius: 10px; -fx-border-width: 1px;"
+        );
+
+        detailsBox.getChildren().addAll(
+            createMetaRow("🏛️", "Building", bName),
+            createMetaRow("🏢", "Floor Level", fName),
+            createMetaRow("🚪", "Room Type", typeStr)
+        );
+
+        if (!r.getOccupants().isEmpty()) {
+            detailsBox.getChildren().add(createMetaRow("👤", "Occupants / Faculty", String.join(", ", r.getOccupants())));
+        }
+
+        if (r.getDescription() != null && !r.getDescription().isBlank()) {
+            detailsBox.getChildren().add(createMetaRow("ℹ️", "Information", r.getDescription()));
+        }
+
+        Button enterBtn = new Button("🚪 Enter Building (" + fName + ")");
+        enterBtn.setMaxWidth(Double.MAX_VALUE);
+        enterBtn.setStyle(
+            "-fx-background-color: #1a73e8; -fx-text-fill: white; " +
+            "-fx-font-size: 13px; -fx-font-weight: bold; -fx-background-radius: 8px; " +
+            "-fx-cursor: hand; -fx-padding: 8 14;"
+        );
+        enterBtn.setOnAction(e -> {
+            if (onEnterBuilding != null) {
+                onEnterBuilding.run();
+            }
+        });
+
+        dynamicSection.getChildren().addAll(detailsBox, enterBtn);
+
+        directionsBtn.setOnAction(e -> {
+            if (onEnterBuilding != null) {
+                onEnterBuilding.run();
+            }
+        });
+
+        animateShow();
+    }
+
+    private HBox createMetaRow(String icon, String title, String value) {
+        HBox row = new HBox(8);
+        row.setAlignment(Pos.CENTER_LEFT);
+        Label ic = new Label(icon);
+        ic.setStyle("-fx-font-size: 13px;");
+        VBox col = new VBox(1);
+        Label t = new Label(title);
+        t.setStyle("-fx-font-size: 10px; -fx-text-fill: " + (isDark ? "#9aa0a6;" : "#70757a;") + " -fx-font-weight: bold;");
+        Label v = new Label(value);
+        v.setWrapText(true);
+        v.setStyle("-fx-font-size: 12px; -fx-font-weight: bold; -fx-text-fill: " + (isDark ? "#e8eaed;" : "#202124;"));
+        col.getChildren().addAll(t, v);
+        row.getChildren().addAll(ic, col);
+        return row;
+    }
+
     public void showPoi(String name, String category, String details) {
         this.currentBuilding = null;
         innerMapBtn.setVisible(false);
@@ -410,6 +506,9 @@ public class BuildingInfoCard {
 
     public void hide() {
         if (!cardContainer.isVisible()) return;
+        if (onCloseCallback != null) {
+            onCloseCallback.run();
+        }
         if (currentAnim != null) {
             currentAnim.stop();
         }
@@ -529,6 +628,10 @@ public class BuildingInfoCard {
 
     public void setOnOpenRoom(Consumer<RoomLocation> callback) {
         this.onOpenRoom = callback;
+    }
+
+    public void setOnClose(Runnable callback) {
+        this.onCloseCallback = callback;
     }
 
     public VBox getContainer() {

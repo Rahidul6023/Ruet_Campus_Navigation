@@ -465,6 +465,10 @@ public class MapSearchBar {
         } else if (item.getType() == SearchSuggestion.Type.ROOM) {
             RoomLocation roomLoc = (RoomLocation) item.getPayload();
             searchField.setText(roomLoc.room().getDisplayTitle());
+            String bName = roomLoc.building() != null ? roomLoc.building().getBuildingName() : null;
+            if (bName != null && !bName.isBlank()) {
+                focusOnLocation(bName, mapGroup, rootPane);
+            }
             if (onRoomSelected != null) {
                 onRoomSelected.accept(roomLoc);
             }
@@ -476,6 +480,23 @@ public class MapSearchBar {
                 onLocationSelected.accept(locName);
             }
         }
+    }
+
+    /**
+     * Retrieves center coordinates [x, y] for a given building name.
+     */
+    public double[] getBuildingCoordinates(String locationName) {
+        if (locationName == null) return null;
+        double[] coords = locationCoordinates.get(locationName);
+        if (coords != null) return coords;
+        for (Map.Entry<String, double[]> entry : locationCoordinates.entrySet()) {
+            if (entry.getKey().equalsIgnoreCase(locationName) ||
+                entry.getKey().toLowerCase().contains(locationName.toLowerCase()) ||
+                locationName.toLowerCase().contains(entry.getKey().toLowerCase())) {
+                return entry.getValue();
+            }
+        }
+        return null;
     }
 
     /**
