@@ -6,6 +6,7 @@ import com.ruet.campusmap.model.FloorPlan;
 import com.ruet.campusmap.service.InnerMapRegistry;
 import javafx.animation.FadeTransition;
 import javafx.animation.Interpolator;
+import javafx.geometry.Bounds;
 import javafx.geometry.Insets;
 import javafx.geometry.Point2D;
 import javafx.geometry.Pos;
@@ -220,10 +221,8 @@ public class InnerMapView {
         double viewHeight = getViewHeight();
         double allowedWidth = Math.max(100.0, viewWidth - GAP_LEFT - GAP_RIGHT);
         double allowedHeight = Math.max(100.0, viewHeight - GAP_TOP - GAP_BOTTOM);
-        double scale = floorMapGroup.getScaleX();
-        double scaledWidth = mapWidth * scale;
-        double scaledHeight = mapHeight * scale;
-        return (scaledWidth > allowedWidth + 0.5) || (scaledHeight > allowedHeight + 0.5);
+        Bounds bounds = floorMapGroup.getBoundsInParent();
+        return (bounds.getWidth() > allowedWidth + 1.0) || (bounds.getHeight() > allowedHeight + 1.0);
     }
 
     private void setupPanZoomInteractions() {
@@ -355,11 +354,23 @@ public class InnerMapView {
         floorMapGroup.setScaleX(fitScale);
         floorMapGroup.setScaleY(fitScale);
 
-        // Center map within the available gap-bounded area
-        double baseTx = (GAP_LEFT - GAP_RIGHT) / 2.0;
-        double baseTy = (GAP_TOP - GAP_BOTTOM) / 2.0;
-        floorMapGroup.setTranslateX(baseTx);
-        floorMapGroup.setTranslateY(baseTy);
+        // Center map within the available gap-bounded area using boundsInParent
+        Bounds bounds = floorMapGroup.getBoundsInParent();
+        double currentCenterX = (bounds.getMinX() + bounds.getMaxX()) / 2.0;
+        double currentCenterY = (bounds.getMinY() + bounds.getMaxY()) / 2.0;
+
+        double viewWidth = getViewWidth();
+        double viewHeight = getViewHeight();
+        double allowedWidth = Math.max(100.0, viewWidth - GAP_LEFT - GAP_RIGHT);
+        double allowedHeight = Math.max(100.0, viewHeight - GAP_TOP - GAP_BOTTOM);
+
+        double targetCenterX = GAP_LEFT + allowedWidth / 2.0;
+        double targetCenterY = GAP_TOP + allowedHeight / 2.0;
+
+        double currentTx = floorMapGroup.getTranslateX();
+        double currentTy = floorMapGroup.getTranslateY();
+        floorMapGroup.setTranslateX(currentTx + (targetCenterX - currentCenterX));
+        floorMapGroup.setTranslateY(currentTy + (targetCenterY - currentCenterY));
 
         updateZoomLabel(fitScale);
         clampPosition();
@@ -378,28 +389,36 @@ public class InnerMapView {
         double allowedWidth = Math.max(100.0, viewWidth - GAP_LEFT - GAP_RIGHT);
         double allowedHeight = Math.max(100.0, viewHeight - GAP_TOP - GAP_BOTTOM);
 
-        double scale = floorMapGroup.getScaleX();
-        double scaledWidth = mapWidth * scale;
-        double scaledHeight = mapHeight * scale;
+        Bounds bounds = floorMapGroup.getBoundsInParent();
+        double scaledWidth = bounds.getWidth();
+        double scaledHeight = bounds.getHeight();
 
-        // Base center offset in viewport to place map center midway within the allowed bounds
-        double baseTx = (GAP_LEFT - GAP_RIGHT) / 2.0;
-        double baseTy = (GAP_TOP - GAP_BOTTOM) / 2.0;
+        double currentCenterX = (bounds.getMinX() + bounds.getMaxX()) / 2.0;
+        double currentCenterY = (bounds.getMinY() + bounds.getMaxY()) / 2.0;
+
+        double targetCenterX = GAP_LEFT + allowedWidth / 2.0;
+        double targetCenterY = GAP_TOP + allowedHeight / 2.0;
+
+        // Base translation that places the map center at the target center
+        double currentTx = floorMapGroup.getTranslateX();
+        double currentTy = floorMapGroup.getTranslateY();
+        double baseTx = currentTx + (targetCenterX - currentCenterX);
+        double baseTy = currentTy + (targetCenterY - currentCenterY);
 
         // Excess dimensions beyond the allowed area
         double excessX = Math.max(0.0, scaledWidth - allowedWidth);
         double excessY = Math.max(0.0, scaledHeight - allowedHeight);
 
         // Translation bounds:
-        // If scaled <= allowed: excess is 0, minTx == maxTx == baseTx (completely locked, zero scrolling).
-        // If scaled > allowed: map edges stop exactly at the gap borders without entering them.
+        // If scaled <= allowed: excess is 0, minTx == maxTx == baseTx (locked to target center, zero scrolling)
+        // If scaled > allowed: map edges stop exactly at the gap borders without entering them
         double minTx = baseTx - excessX / 2.0;
         double maxTx = baseTx + excessX / 2.0;
         double minTy = baseTy - excessY / 2.0;
         double maxTy = baseTy + excessY / 2.0;
 
-        double clampedX = Math.max(minTx, Math.min(maxTx, floorMapGroup.getTranslateX()));
-        double clampedY = Math.max(minTy, Math.min(maxTy, floorMapGroup.getTranslateY()));
+        double clampedX = Math.max(minTx, Math.min(maxTx, currentTx));
+        double clampedY = Math.max(minTy, Math.min(maxTy, currentTy));
 
         floorMapGroup.setTranslateX(clampedX);
         floorMapGroup.setTranslateY(clampedY);
