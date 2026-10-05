@@ -6,10 +6,13 @@ import com.ruet.campusmap.model.AppSettings;
 import com.ruet.campusmap.model.BuildingPolygon;
 import com.ruet.campusmap.service.InnerMapRegistry;
 import com.ruet.campusmap.service.PolygonDataLoader;
+import com.ruet.campusmap.model.RoomLocation;
+import com.ruet.campusmap.service.RoomRegistry;
 import com.ruet.campusmap.view.BuildingHoverTooltip;
 import com.ruet.campusmap.view.BuildingInfoCard;
 import com.ruet.campusmap.view.BuildingLabelsLayer;
 import com.ruet.campusmap.view.CampusBrandBadge;
+import com.ruet.campusmap.view.CampusPinLayer;
 import com.ruet.campusmap.view.InnerMapView;
 import com.ruet.campusmap.view.MapPoiLayer;
 import com.ruet.campusmap.view.SettingsCard;
@@ -109,12 +112,17 @@ public class MainApp extends Application {
             buildingInfoCard.showPoi(name, category, description);
         });
 
+        // Google Maps-style Animated Drop Pin Layer on Campus Buildings
+        CampusPinLayer pinLayer = new CampusPinLayer();
+
         // Group containing all map elements that scale and pan together
-        Group mapGroup = new Group(campusView, polygonLayer, mapPoiLayer.getContainer(), buildingLabelsLayer.getContainer());
+        Group mapGroup = new Group(campusView, polygonLayer, mapPoiLayer.getContainer(), buildingLabelsLayer.getContainer(), pinLayer.getContainer());
+        pinLayer.bindScale(mapGroup.scaleXProperty());
         StackPane root = new StackPane(mapGroup);
 
         // Modular Map Editor Manager
         MapEditorManager editorManager = new MapEditorManager(root, polygonLayer, clickedBp -> {
+            pinLayer.clear();
             buildingInfoCard.showBuilding(clickedBp);
         }, buildingLabelsLayer);
 
@@ -128,13 +136,33 @@ public class MainApp extends Application {
         MapSearchBar searchBar = new MapSearchBar(mapGroup, root);
         searchBar.registerBuildings(initialBuildings);
 
-        // When a teacher is selected from search -> Display teacher card & fly to their building
+        // Clear pin when building info card is closed
+        buildingInfoCard.setOnClose(pinLayer::clear);
+
+        // When a teacher is selected from search -> Drop pin on building, center view, and show teacher card
         searchBar.setOnTeacherSelected(teacher -> {
-            buildingInfoCard.showTeacher(teacher, () -> {
-                if (teacher.getBuildingName() != null && !teacher.getBuildingName().isBlank()) {
-                    searchBar.flyToLocation(teacher.getBuildingName());
+            String bName = teacher.getBuildingName();
+            double[] coords = (bName != null) ? searchBar.getBuildingCoordinates(bName) : null;
+
+            Runnable onNavigateToBuilding = () -> {
+                if (bName != null && !bName.isBlank()) {
+                    searchBar.flyToLocation(bName);
                 }
-            });
+            };
+
+            if (coords != null) {
+                String pinLabel = teacher.getName();
+                if (teacher.getRoomNumber() != null && !teacher.getRoomNumber().isBlank()) {
+                    pinLabel += " (" + teacher.getRoomNumber() + ")";
+                }
+                pinLayer.dropPin(coords[0], coords[1], pinLabel, () -> {
+                    buildingInfoCard.showTeacher(teacher, onNavigateToBuilding);
+                });
+            } else {
+                pinLayer.clear();
+            }
+
+            buildingInfoCard.showTeacher(teacher, onNavigateToBuilding);
         });
 
         // Sync real-time building modifications between editor and search bar
@@ -142,8 +170,23 @@ public class MainApp extends Application {
         editorManager.setOnBuildingUpdated(searchBar::addOrUpdateBuilding);
         editorManager.setOnBuildingDeleted(searchBar::removeBuilding);
 
-        // When a location is selected from search -> Display building card
+        // When a location is selected from search -> Display building card and drop pin
         searchBar.setOnLocationSelected(locationName -> {
+            double[] coords = searchBar.getBuildingCoordinates(locationName);
+            if (coords != null) {
+                pinLayer.dropPin(coords[0], coords[1], locationName, () -> {
+                    for (BuildingPolygon bp : editorManager.getSavedBuildings()) {
+                        if (bp.getName() != null && bp.getName().equalsIgnoreCase(locationName)) {
+                            buildingInfoCard.showBuilding(bp);
+                            return;
+                        }
+                    }
+                    buildingInfoCard.showPoi(locationName, "Campus Landmark", "RUET Campus Facilities");
+                });
+            } else {
+                pinLayer.clear();
+            }
+
             for (BuildingPolygon bp : editorManager.getSavedBuildings()) {
                 if (bp.getName() != null && bp.getName().equalsIgnoreCase(locationName)) {
                     buildingInfoCard.showBuilding(bp);
@@ -186,18 +229,35 @@ public class MainApp extends Application {
             }
         };
 
-        // When a room is chosen from search dropdown -> Jump directly to room on inner map
+        // When a room/lab is chosen from search dropdown:
+        // Puts a location icon on the building, centers view, and presents room card with "Enter Building" action
         searchBar.setOnRoomSelected(roomLoc -> {
-            innerMapView.setAdminMode(editorManager.isActive());
-            if (innerMapView.openRoom(roomLoc)) {
-                hideMainUiForInnerMap.run();
+            String bName = roomLoc.building() != null ? roomLoc.building().getBuildingName() : null;
+            double[] coords = (bName != null) ? searchBar.getBuildingCoordinates(bName) : null;
+
+            Runnable onEnterBuilding = () -> {
+                innerMapView.setAdminMode(editorManager.isActive());
+                if (innerMapView.openBuildingWithTarget(bName, roomLoc)) {
+                    hideMainUiForInnerMap.run();
+                }
+            };
+
+            if (coords != null) {
+                pinLayer.dropPin(coords[0], coords[1], roomLoc.room().getDisplayTitle(), () -> {
+                    buildingInfoCard.showRoom(roomLoc, onEnterBuilding);
+                });
+            } else {
+                pinLayer.clear();
             }
+
+            buildingInfoCard.showRoom(roomLoc, onEnterBuilding);
         });
 
         // When viewing teacher card and user clicks "View Room on Floor Plan"
         buildingInfoCard.setOnOpenRoom(roomLoc -> {
+            String bName = roomLoc.building() != null ? roomLoc.building().getBuildingName() : null;
             innerMapView.setAdminMode(editorManager.isActive());
-            if (innerMapView.openRoom(roomLoc)) {
+            if (innerMapView.openBuildingWithTarget(bName, roomLoc)) {
                 hideMainUiForInnerMap.run();
             }
         });
@@ -302,6 +362,7 @@ public class MainApp extends Application {
             actionButtons.applyTheme(isDark);
             bottomControls.applyTheme(isDark);
             buildingInfoCard.applyTheme(isDark);
+            pinLayer.applyTheme(isDark);
             buildingLabelsLayer.refresh();
             mapPoiLayer.refresh();
             settingsCard.applyTheme(isDark);
