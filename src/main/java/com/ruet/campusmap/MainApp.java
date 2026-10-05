@@ -127,7 +127,7 @@ public class MainApp extends Application {
         // Modular Map Editor Manager
         MapEditorManager editorManager = new MapEditorManager(root, polygonLayer, clickedBp -> {
             buildingInfoCard.showBuilding(clickedBp);
-        });
+        }, buildingLabelsLayer);
 
         // Load and display all saved building polygons from campus.json
         List<BuildingPolygon> initialBuildings = PolygonDataLoader.loadBuildingPolygons();
