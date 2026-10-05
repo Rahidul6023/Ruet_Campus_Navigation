@@ -55,6 +55,7 @@ public class MapSearchBar {
     private Consumer<Teacher> onTeacherSelected;
     private Consumer<String> onLocationSelected;
     private boolean isDark = false;
+    private final List<BuildingPolygon> registeredBuildings = new ArrayList<>();
 
     // Searchable coordinates for campus locations: [X, Y] center point on the SVG map (calibrated for ruet-campus-map-refined-v2.svg)
     private final Map<String, double[]> locationCoordinates = new HashMap<>(Map.ofEntries(
@@ -82,20 +83,41 @@ public class MapSearchBar {
 
     public void registerBuildings(List<BuildingPolygon> buildings) {
         if (buildings == null) return;
+        registeredBuildings.clear();
+        registeredBuildings.addAll(buildings);
         for (BuildingPolygon bp : buildings) {
-            if (bp == null || bp.getName() == null || bp.getPoints() == null || bp.getPoints().isEmpty()) continue;
-            double sumX = 0, sumY = 0;
-            int count = 0;
-            for (double[] pt : bp.getPoints()) {
-                if (pt != null && pt.length >= 2) {
-                    sumX += pt[0];
-                    sumY += pt[1];
-                    count++;
-                }
+            indexBuildingCoordinates(bp);
+        }
+    }
+
+    public void addOrUpdateBuilding(BuildingPolygon bp) {
+        if (bp == null) return;
+        registeredBuildings.removeIf(b -> b == bp || (b.getName() != null && b.getName().equalsIgnoreCase(bp.getName())));
+        registeredBuildings.add(bp);
+        indexBuildingCoordinates(bp);
+    }
+
+    public void removeBuilding(BuildingPolygon bp) {
+        if (bp == null) return;
+        registeredBuildings.removeIf(b -> b == bp || (b.getName() != null && b.getName().equalsIgnoreCase(bp.getName())));
+        if (bp.getName() != null) {
+            locationCoordinates.remove(bp.getName());
+        }
+    }
+
+    private void indexBuildingCoordinates(BuildingPolygon bp) {
+        if (bp == null || bp.getName() == null || bp.getPoints() == null || bp.getPoints().isEmpty()) return;
+        double sumX = 0, sumY = 0;
+        int count = 0;
+        for (double[] pt : bp.getPoints()) {
+            if (pt != null && pt.length >= 2) {
+                sumX += pt[0];
+                sumY += pt[1];
+                count++;
             }
-            if (count > 0) {
-                locationCoordinates.putIfAbsent(bp.getName(), new double[]{sumX / count, sumY / count});
-            }
+        }
+        if (count > 0) {
+            locationCoordinates.put(bp.getName(), new double[]{sumX / count, sumY / count});
         }
     }
 
@@ -312,9 +334,25 @@ public class MapSearchBar {
                     matches.add(new SearchSuggestion(SearchSuggestion.Type.TEACHER, t.getName(), sub, t));
                 }
 
-                // 2. Search campus buildings and landmarks
+                // 2. Search campus buildings (by name or code name)
+                java.util.Set<String> matchedBuildingNames = new java.util.HashSet<>();
+                for (BuildingPolygon bp : registeredBuildings) {
+                    if (bp == null || bp.getName() == null) continue;
+                    boolean matchesName = bp.getName().toLowerCase().contains(query);
+                    boolean matchesCode = bp.getCodeName() != null && !bp.getCodeName().isBlank() && bp.getCodeName().toLowerCase().contains(query);
+
+                    if (matchesName || matchesCode) {
+                        matchedBuildingNames.add(bp.getName().toLowerCase());
+                        String sub = (bp.getCodeName() != null && !bp.getCodeName().isBlank())
+                            ? "Campus Building [" + bp.getCodeName() + "]"
+                            : "Campus Building / Landmark";
+                        matches.add(new SearchSuggestion(SearchSuggestion.Type.LOCATION, bp.getName(), sub, bp.getName()));
+                    }
+                }
+
+                // 3. Search other campus landmarks / POIs
                 for (String locName : locationCoordinates.keySet()) {
-                    if (locName.toLowerCase().contains(query)) {
+                    if (!matchedBuildingNames.contains(locName.toLowerCase()) && locName.toLowerCase().contains(query)) {
                         matches.add(new SearchSuggestion(SearchSuggestion.Type.LOCATION, locName, "Campus Building / Landmark", locName));
                     }
                 }
