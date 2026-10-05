@@ -720,6 +720,16 @@ public class MapEditorManager {
             "-fx-border-color: #dadce0; -fx-border-radius: 8px; -fx-padding: 8 12; -fx-font-size: 13px;"
         );
 
+        Label codeLabel = new Label("Building Code Name (e.g. CSE, AUD, ME):");
+        codeLabel.setStyle("-fx-font-size: 12px; -fx-text-fill: #5f6368; -fx-font-weight: bold;");
+
+        TextField codeField = new TextField("");
+        codeField.setPromptText("e.g. CSE (shown on map badges)");
+        codeField.setStyle(
+            "-fx-background-color: #f1f3f4; -fx-background-radius: 8px; " +
+            "-fx-border-color: #dadce0; -fx-border-radius: 8px; -fx-padding: 8 12; -fx-font-size: 13px;"
+        );
+
         Label colorLabel = new Label("Theme Color:");
         colorLabel.setStyle("-fx-font-size: 12px; -fx-text-fill: #5f6368; -fx-font-weight: bold;");
 
@@ -756,13 +766,14 @@ public class MapEditorManager {
         visibilityCard.setPadding(new Insets(10));
         visibilityCard.setStyle("-fx-background-color: #f8f9fa; -fx-background-radius: 8px; -fx-border-color: #dadce0; -fx-border-radius: 8px;");
 
-        content.getChildren().addAll(nameLabel, nameField, colorSection, visibilityCard);
+        content.getChildren().addAll(nameLabel, nameField, codeLabel, codeField, colorSection, visibilityCard);
         dialog.getDialogPane().setContent(content);
 
         dialog.setResultConverter(dialogButton -> {
             if (dialogButton == finishButtonType) {
                 String name = nameField.getText().trim();
                 if (name.isEmpty()) name = "New Building";
+                String code = codeField.getText() != null ? codeField.getText().trim().toUpperCase() : "";
                 Color c = colorPicker.getValue();
                 String hex = String.format("#%02X%02X%02X",
                     (int)(c.getRed() * 255),
@@ -770,7 +781,7 @@ public class MapEditorManager {
                     (int)(c.getBlue() * 255)
                 );
                 boolean visibleToUsers = visibleCheck.isSelected();
-                return new BuildingPolygon(name, hex, points, visibleToUsers);
+                return new BuildingPolygon(name, code, hex, points, visibleToUsers);
             }
             return null;
         });
@@ -796,8 +807,9 @@ public class MapEditorManager {
     private void openEditBuildingDialog(BuildingPolygon bp, Polygon poly) {
         EditBuildingDialog.show(
             bp,
-            (newName, newColor, visibleToUsers) -> {
+            (newName, newCodeName, newColor, visibleToUsers) -> {
                 bp.setName(newName);
+                bp.setCodeName(newCodeName);
                 bp.setColor(newColor);
                 bp.setVisibleToUsers(visibleToUsers);
 
