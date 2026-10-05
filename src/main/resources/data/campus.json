@@ -1,6 +1,7 @@
 [
   {
     "name": "Academic Building 02 (CSE)",
+    "codeName": "CSE",
     "color": "#3498DB",
     "points": [
       [
@@ -24,6 +25,7 @@
   },
   {
     "name": "Auditorium",
+    "codeName": "AUD",
     "color": "#3498DB",
     "points": [
       [
@@ -63,6 +65,7 @@
   },
   {
     "name": "Mechanical Building (Construct.)",
+    "codeName": "ME",
     "color": "#3498DB",
     "points": [
       [
