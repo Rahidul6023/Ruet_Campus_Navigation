@@ -49,6 +49,7 @@ public class InnerMapView {
     private final StackPane viewport;
 
     private final RoomLabelsLayer roomLabelsLayer;
+    private final RoomHoverTooltip roomHoverTooltip;
     private final List<RoomLabel> currentRooms = new ArrayList<>();
 
     private final Label buildingTitleLabel;
@@ -113,6 +114,9 @@ public class InnerMapView {
 
         roomLabelsLayer = new RoomLabelsLayer(mapWidth, mapHeight);
         roomLabelsLayer.setCallbacks(this::openEditRoomDialog, this::handleRoomMoved);
+
+        roomHoverTooltip = new RoomHoverTooltip();
+        roomLabelsLayer.setHoverTooltip(roomHoverTooltip);
 
         floorMapGroup = new Group(floorWebView, roomLabelsLayer.getPane());
         viewport = new StackPane(floorMapGroup);
@@ -251,6 +255,7 @@ public class InnerMapView {
         StackPane.setMargin(zoomControlsBox, new Insets(0, 24, 24, 0));
 
         container.getChildren().addAll(viewport, topHeaderBar, editModeBanner, floorSwitcherBox, zoomControlsBox);
+        roomHoverTooltip.attachTo(container);
 
         // Bind Pan and Zoom interactions
         setupPanZoomInteractions();
@@ -346,6 +351,9 @@ public class InnerMapView {
         });
 
         container.setOnMouseDragged(event -> {
+            if (roomHoverTooltip != null) {
+                roomHoverTooltip.hide();
+            }
             if (Math.hypot(event.getSceneX() - pressPoint[0], event.getSceneY() - pressPoint[1]) > 5) {
                 wasDragged[0] = true;
             }
@@ -359,6 +367,9 @@ public class InnerMapView {
         });
 
         container.setOnScroll(event -> {
+            if (roomHoverTooltip != null) {
+                roomHoverTooltip.hide();
+            }
             double zoomFactor = (event.getDeltaY() > 0) ? 1.12 : 0.88;
             zoomAtScenePoint(zoomFactor, event.getSceneX(), event.getSceneY());
             event.consume();
@@ -655,6 +666,9 @@ public class InnerMapView {
      */
     public void selectFloor(FloorPlan floor) {
         if (floor == null) return;
+        if (roomHoverTooltip != null) {
+            roomHoverTooltip.hide();
+        }
         this.currentFloor = floor;
 
         floorBadge.setText(floor.getFloorName().toUpperCase());
@@ -741,6 +755,9 @@ public class InnerMapView {
     }
 
     public void setRoomEditMode(boolean editMode) {
+        if (roomHoverTooltip != null) {
+            roomHoverTooltip.hide();
+        }
         this.roomEditMode = editMode;
         editModeBanner.setVisible(editMode);
         editModeBanner.setManaged(editMode);
@@ -825,6 +842,9 @@ public class InnerMapView {
 
     public void close() {
         if (!container.isVisible()) return;
+        if (roomHoverTooltip != null) {
+            roomHoverTooltip.hide();
+        }
         if (roomEditMode) {
             setRoomEditMode(false);
         }
@@ -856,6 +876,9 @@ public class InnerMapView {
         container.setStyle(isDark ? "-fx-background-color: #1a1d24;" : "-fx-background-color: #f1f3f4;");
 
         roomLabelsLayer.applyTheme(isDark);
+        if (roomHoverTooltip != null) {
+            roomHoverTooltip.applyTheme(isDark);
+        }
         updateEditRoomsBtn();
 
         if (editModeBanner != null) {

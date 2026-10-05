@@ -45,6 +45,7 @@ public class RoomLabelsLayer {
 
     private Consumer<RoomLabel> onRoomEdit;
     private Consumer<RoomLabel> onRoomMoved;
+    private RoomHoverTooltip hoverTooltip;
 
     public RoomLabelsLayer(double mapWidth, double mapHeight) {
         this.mapWidth = mapWidth;
@@ -69,7 +70,12 @@ public class RoomLabelsLayer {
         this.onRoomMoved = onRoomMoved;
     }
 
+    public void setHoverTooltip(RoomHoverTooltip hoverTooltip) {
+        this.hoverTooltip = hoverTooltip;
+    }
+
     public void setRooms(List<RoomLabel> newRooms) {
+        if (hoverTooltip != null) hoverTooltip.hide();
         rooms.clear();
         if (newRooms != null) rooms.addAll(newRooms);
         rebuild();
@@ -80,6 +86,7 @@ public class RoomLabelsLayer {
     }
 
     public void setEditMode(boolean editMode) {
+        if (hoverTooltip != null) hoverTooltip.hide();
         this.editMode = editMode;
         rebuild();
     }
@@ -175,7 +182,28 @@ public class RoomLabelsLayer {
         positionBadge(badge, room);
         applyBadgeScale(badge);
 
-        Tooltip.install(badge, new Tooltip(buildTooltip(room)));
+        // Smooth mouse-transparent hover tooltip
+        badge.setOnMouseEntered(e -> {
+            if (!editMode) {
+                badge.setEffect(new DropShadow(10, 0, 2, Color.web("#1a73e8", 0.55)));
+            }
+            if (hoverTooltip != null) {
+                hoverTooltip.show(room, e.getSceneX(), e.getSceneY());
+            }
+        });
+        badge.setOnMouseMoved(e -> {
+            if (hoverTooltip != null) {
+                hoverTooltip.updatePosition(e.getSceneX(), e.getSceneY());
+            }
+        });
+        badge.setOnMouseExited(e -> {
+            if (!editMode) {
+                badge.setEffect(new DropShadow(6, 0, 2, Color.rgb(0, 0, 0, 0.18)));
+            }
+            if (hoverTooltip != null) {
+                hoverTooltip.hide();
+            }
+        });
 
         if (editMode) {
             installEditHandlers(badge, room);
@@ -193,6 +221,7 @@ public class RoomLabelsLayer {
         final boolean[] moved = new boolean[]{false};
 
         badge.setOnMousePressed(e -> {
+            if (hoverTooltip != null) hoverTooltip.hide();
             start[0] = e.getSceneX();
             start[1] = e.getSceneY();
             moved[0] = false;
