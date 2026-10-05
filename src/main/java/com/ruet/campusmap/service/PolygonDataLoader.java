@@ -98,6 +98,18 @@ public class PolygonDataLoader {
      * and explicit admin mode state.
      */
     public static Polygon createJavaFXPolygon(BuildingPolygon model, java.util.function.BiConsumer<BuildingPolygon, Polygon> onPolygonClick, boolean isAdminMode) {
+        return createJavaFXPolygon(model, onPolygonClick, null, isAdminMode);
+    }
+
+    /**
+     * Converts a BuildingPolygon data model into an interactive JavaFX Polygon with single and double click callbacks.
+     */
+    public static Polygon createJavaFXPolygon(
+        BuildingPolygon model,
+        java.util.function.BiConsumer<BuildingPolygon, Polygon> onPolygonClick,
+        java.util.function.Consumer<BuildingPolygon> onPolygonDoubleClick,
+        boolean isAdminMode
+    ) {
         Polygon polygon = new Polygon();
         polygon.setUserData(model);
 
@@ -155,13 +167,16 @@ public class PolygonDataLoader {
             BuildingHoverTooltip.getInstance().hide();
         });
 
-        if (onPolygonClick != null) {
-            polygon.setOnMouseClicked(e -> {
-                if (e.getButton() == javafx.scene.input.MouseButton.PRIMARY) {
+        polygon.setOnMouseClicked(e -> {
+            if (e.getButton() == javafx.scene.input.MouseButton.PRIMARY) {
+                if (e.getClickCount() == 2 && onPolygonDoubleClick != null) {
+                    e.consume();
+                    onPolygonDoubleClick.accept(model);
+                } else if (onPolygonClick != null) {
                     onPolygonClick.accept(model, polygon);
                 }
-            });
-        }
+            }
+        });
 
         return polygon;
     }

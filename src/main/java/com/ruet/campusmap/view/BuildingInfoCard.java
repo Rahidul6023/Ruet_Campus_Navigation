@@ -36,12 +36,16 @@ public class BuildingInfoCard {
     private final Label subtitleLabel;
     private final Button directionsBtn;
     private final Button copyBtn;
+    private final Button innerMapBtn;
     private final StackPane closeBtn;
     private final SVGPath closeIcon;
     private final SVGPath directionsIcon;
     private final SVGPath copyIcon;
+    private final SVGPath innerMapIcon;
     private final Separator divider;
     private final Label feedbackLabel;
+    private java.util.function.Consumer<BuildingPolygon> onOpenInnerMap;
+    private BuildingPolygon currentBuilding;
     private boolean isDark = false;
     private ParallelTransition currentAnim;
 
@@ -101,7 +105,21 @@ public class BuildingInfoCard {
         divider = new Separator();
         divider.setStyle("-fx-opacity: 0.4;");
 
-        // Action Buttons Row (Directions + Copy Name)
+        // Action Buttons Row (Inner Map + Directions + Copy Name)
+        innerMapIcon = new SVGPath();
+        innerMapIcon.setContent("M11.99 18.54l-7.37-5.73L3 14.07l9 7 9-7-1.63-1.27-7.38 5.74zM12 16l7.36-5.73L21 9l-9-7-9 7 1.63 1.27L12 16z");
+        innerMapIcon.setScaleX(0.75);
+        innerMapIcon.setScaleY(0.75);
+
+        innerMapBtn = new Button("Floor Plan", innerMapIcon);
+        innerMapBtn.setVisible(false);
+        innerMapBtn.setManaged(false);
+        innerMapBtn.setOnAction(e -> {
+            if (onOpenInnerMap != null && currentBuilding != null) {
+                onOpenInnerMap.accept(currentBuilding);
+            }
+        });
+
         directionsIcon = new SVGPath();
         directionsIcon.setContent("M21.71 11.29l-9-9a.996.996 0 0 0-1.41 0l-9 9a.996.996 0 0 0 0 1.41l9 9c.39.39 1.02.39 1.41 0l9-9a.996.996 0 0 0 0-1.41zM14 14.5V12h-4v3H8v-4c0-.55.45-1 1-1h5V7.5l3.5 3.5-3.5 3.5z");
         directionsIcon.setFill(Color.WHITE);
@@ -154,7 +172,7 @@ public class BuildingInfoCard {
             pause.play();
         });
 
-        HBox actionsRow = new HBox(8, directionsBtn, copyBtn, feedbackLabel);
+        HBox actionsRow = new HBox(8, innerMapBtn, directionsBtn, copyBtn, feedbackLabel);
         actionsRow.setAlignment(Pos.CENTER_LEFT);
 
         cardContainer.getChildren().addAll(topRow, titleLabel, subtitleLabel, divider, actionsRow);
@@ -167,6 +185,7 @@ public class BuildingInfoCard {
 
     public void showBuilding(BuildingPolygon building) {
         if (building == null) return;
+        this.currentBuilding = building;
         String name = building.getName();
         titleLabel.setText(name);
 
@@ -192,10 +211,19 @@ public class BuildingInfoCard {
 
         categoryBadge.setText(category);
         subtitleLabel.setText("RUET Campus • Rajshahi-6204");
+
+        boolean hasInner = com.ruet.campusmap.service.InnerMapRegistry.hasInnerMap(name);
+        innerMapBtn.setVisible(hasInner);
+        innerMapBtn.setManaged(hasInner);
+
         animateShow();
     }
 
     public void showPoi(String name, String category, String details) {
+        this.currentBuilding = null;
+        innerMapBtn.setVisible(false);
+        innerMapBtn.setManaged(false);
+
         titleLabel.setText(name);
         categoryBadge.setText(category != null ? category.toUpperCase() : "POINT OF INTEREST");
         subtitleLabel.setText(details != null && !details.isBlank() ? details : "RUET Campus Facilities");
@@ -286,6 +314,16 @@ public class BuildingInfoCard {
                 "-fx-padding: 7 12;"
             );
             copyIcon.setFill(Color.web("#bdc1c6"));
+            innerMapBtn.setStyle(
+                "-fx-background-color: #14b8a6; " +
+                "-fx-text-fill: #0f172a; " +
+                "-fx-font-size: 12px; " +
+                "-fx-font-weight: bold; " +
+                "-fx-background-radius: 20px; " +
+                "-fx-cursor: hand; " +
+                "-fx-padding: 7 14;"
+            );
+            innerMapIcon.setFill(Color.web("#0f172a"));
         } else {
             cardContainer.setStyle(
                 "-fx-background-color: #ffffff; " +
@@ -319,7 +357,21 @@ public class BuildingInfoCard {
                 "-fx-padding: 7 12;"
             );
             copyIcon.setFill(Color.web("#5f6368"));
+            innerMapBtn.setStyle(
+                "-fx-background-color: #0d9488; " +
+                "-fx-text-fill: #ffffff; " +
+                "-fx-font-size: 12px; " +
+                "-fx-font-weight: bold; " +
+                "-fx-background-radius: 20px; " +
+                "-fx-cursor: hand; " +
+                "-fx-padding: 7 14;"
+            );
+            innerMapIcon.setFill(Color.WHITE);
         }
+    }
+
+    public void setOnOpenInnerMap(java.util.function.Consumer<BuildingPolygon> callback) {
+        this.onOpenInnerMap = callback;
     }
 
     public VBox getContainer() {

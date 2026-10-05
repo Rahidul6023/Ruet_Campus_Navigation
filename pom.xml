@@ -69,6 +69,12 @@
                 <version>0.0.8</version>
                 <configuration>
                     <mainClass>com.ruet.campusmap.MainApp</mainClass>
+                    <options>
+                        <option>-Xms64m</option>
+                        <option>-Xmx512m</option>
+                        <option>-XX:CICompilerCount=2</option>
+                        <option>-Dprism.maxTextureSize=8192</option>
+                    </options>
                 </configuration>
             </plugin>
 
