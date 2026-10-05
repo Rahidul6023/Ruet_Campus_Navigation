@@ -69,6 +69,7 @@ public class TeacherDataLoader {
             teachers = Collections.emptyList();
         }
 
+        boolean saved = false;
         File file = new File(JSON_FILE_PATH);
         File parent = file.getParentFile();
         if (parent != null && !parent.exists()) {
@@ -77,11 +78,21 @@ public class TeacherDataLoader {
 
         try (FileWriter writer = new FileWriter(file, StandardCharsets.UTF_8)) {
             GSON.toJson(teachers, writer);
-            return true;
+            saved = true;
         } catch (Exception e) {
             System.err.println("Failed to save teachers to " + JSON_FILE_PATH + ": " + e.getMessage());
-            return false;
         }
+
+        // Also write to target/classes if it exists so running app instantly sees updates
+        File targetFile = new File("target/classes/data/teachers.json");
+        if (targetFile.getParentFile() != null && targetFile.getParentFile().exists()) {
+            try (FileWriter writer = new FileWriter(targetFile, StandardCharsets.UTF_8)) {
+                GSON.toJson(teachers, writer);
+                saved = true;
+            } catch (Exception ignored) {}
+        }
+
+        return saved;
     }
 
     /**
