@@ -4,11 +4,13 @@ import com.ruet.campusmap.editor.AdminLoginDialog;
 import com.ruet.campusmap.editor.MapEditorManager;
 import com.ruet.campusmap.model.AppSettings;
 import com.ruet.campusmap.model.BuildingPolygon;
+import com.ruet.campusmap.service.InnerMapRegistry;
 import com.ruet.campusmap.service.PolygonDataLoader;
 import com.ruet.campusmap.view.BuildingHoverTooltip;
 import com.ruet.campusmap.view.BuildingInfoCard;
 import com.ruet.campusmap.view.BuildingLabelsLayer;
 import com.ruet.campusmap.view.CampusBrandBadge;
+import com.ruet.campusmap.view.InnerMapView;
 import com.ruet.campusmap.view.MapPoiLayer;
 import com.ruet.campusmap.view.SettingsCard;
 import javafx.animation.Interpolator;
@@ -118,12 +120,6 @@ public class MainApp extends Application {
 
         // Load and display all saved building polygons from campus.json
         List<BuildingPolygon> initialBuildings = PolygonDataLoader.loadBuildingPolygons();
-        for (BuildingPolygon bp : initialBuildings) {
-            polygonLayer.getChildren().add(PolygonDataLoader.createJavaFXPolygon(bp, (clickedBp, poly) -> {
-                editorManager.handlePolygonClick(clickedBp, poly);
-            }));
-            buildingLabelsLayer.addPolygonLabel(bp);
-        }
 
         // RUET Campus Brand Badge with Logo SVG (Top-Left)
         CampusBrandBadge brandBadge = new CampusBrandBadge();
@@ -167,13 +163,60 @@ public class MainApp extends Application {
         SettingsCard settingsCard = new SettingsCard(settings, stage, root);
         settingsCard.setOnClose(() -> actionButtons.setSettingsActive(false));
 
+        // Dedicated Inner Map Viewer for multi-floor buildings
+        InnerMapView innerMapView = new InnerMapView(settings);
+
+        java.util.function.Consumer<String> openInnerMap = (buildingName) -> {
+            if (innerMapView.openBuilding(buildingName)) {
+                buildingInfoCard.hide();
+                if (settingsCard.isVisible()) {
+                    settingsCard.hide();
+                    actionButtons.setSettingsActive(false);
+                }
+                brandBadge.getContainer().setVisible(false);
+                searchBar.getContainer().setVisible(false);
+                actionButtons.getContainer().setVisible(false);
+                bottomControls.getContainer().setVisible(false);
+                mapGroup.setVisible(false);
+            }
+        };
+
+        innerMapView.setOnBack(() -> {
+            mapGroup.setVisible(true);
+            brandBadge.getContainer().setVisible(true);
+            searchBar.getContainer().setVisible(true);
+            actionButtons.getContainer().setVisible(true);
+            bottomControls.getContainer().setVisible(true);
+        });
+
+        buildingInfoCard.setOnOpenInnerMap(bp -> {
+            openInnerMap.accept(bp.getName());
+        });
+
+        for (BuildingPolygon bp : initialBuildings) {
+            polygonLayer.getChildren().add(PolygonDataLoader.createJavaFXPolygon(
+                bp,
+                (clickedBp, poly) -> {
+                    editorManager.handlePolygonClick(clickedBp, poly);
+                },
+                (doubleClickedBp) -> {
+                    if (!editorManager.isDrawMode() && InnerMapRegistry.hasInnerMap(doubleClickedBp.getName())) {
+                        openInnerMap.accept(doubleClickedBp.getName());
+                    }
+                },
+                false
+            ));
+            buildingLabelsLayer.addPolygonLabel(bp);
+        }
+
         root.getChildren().addAll(
             brandBadge.getContainer(),
             searchBar.getContainer(),
             actionButtons.getContainer(),
             bottomControls.getContainer(),
             buildingInfoCard.getContainer(),
-            settingsCard.getContainer()
+            settingsCard.getContainer(),
+            innerMapView.getContainer()
         );
 
         // Attach in-scene mouse-transparent building hover tooltip
@@ -223,6 +266,7 @@ public class MainApp extends Application {
             buildingLabelsLayer.refresh();
             mapPoiLayer.refresh();
             settingsCard.applyTheme(isDark);
+            innerMapView.applyTheme(isDark);
             editorManager.applyTheme(isDark);
             BuildingHoverTooltip.getInstance().applyTheme(isDark);
         };
@@ -234,7 +278,10 @@ public class MainApp extends Application {
         campusView.getEngine().getLoadWorker().stateProperty().addListener((obs, oldState, newState) -> {
             if (newState == javafx.concurrent.Worker.State.SUCCEEDED) {
                 try {
-                    campusView.getEngine().executeScript("if (document.body) document.body.style.overflow='hidden';");
+                    campusView.getEngine().executeScript(
+                        "if (document.body) document.body.style.overflow='hidden'; " +
+                        "if (document.documentElement) document.documentElement.style.overflow='hidden';"
+                    );
                 } catch (Exception ignored) {}
                 applyThemeState.run();
             }
@@ -439,9 +486,14 @@ public class MainApp extends Application {
 
         Scene scene = new Scene(root, 1200, 800);
 
-        // Dismiss settings card on ESC key
+        // Dismiss settings card or inner map on ESC key
         scene.setOnKeyPressed(event -> {
             if (event.getCode() == KeyCode.ESCAPE) {
+                if (innerMapView.isShowing()) {
+                    innerMapView.close();
+                    event.consume();
+                    return;
+                }
                 if (settingsCard.isVisible()) {
                     settingsCard.hide();
                     actionButtons.setSettingsActive(false);

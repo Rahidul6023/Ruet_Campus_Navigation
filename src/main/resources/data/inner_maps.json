@@ -1,0 +1,33 @@
+[
+  {
+    "buildingId": "cse_building",
+    "buildingName": "Academic Building 02 (CSE)",
+    "aliases": [
+      "Academic Building 02 (CSE)",
+      "CSE Department",
+      "CSE Building",
+      "CSE",
+      "Academic Building 2",
+      "Academic Building 02"
+    ],
+    "defaultFloorId": "ground",
+    "floors": [
+      {
+        "floorId": "ground",
+        "floorNumber": 0,
+        "floorName": "Ground Floor",
+        "shortLabel": "G",
+        "mapFile": "/maps/cse_ground_floor.svg",
+        "description": "Amphitheater, Faculty Rooms, East Hall & Corridors"
+      },
+      {
+        "floorId": "first",
+        "floorNumber": 1,
+        "floorName": "1st Floor",
+        "shortLabel": "1",
+        "mapFile": "/maps/cse_first_floor (2).svg",
+        "description": "Rooms 201-204, Software & Hardware Labs, Corridors"
+      }
+    ]
+  }
+]

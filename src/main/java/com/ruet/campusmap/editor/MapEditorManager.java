@@ -902,7 +902,7 @@ public class MapEditorManager {
         File file = new File("src/main/resources/data/campus.json");
         Gson gson = new GsonBuilder().setPrettyPrinting().create();
 
-        try (FileWriter writer = new FileWriter(file)) {
+        try (FileWriter writer = new FileWriter(file, java.nio.charset.StandardCharsets.UTF_8)) {
             gson.toJson(savedBuildings, writer);
             Alert alert = new Alert(Alert.AlertType.INFORMATION);
             alert.setTitle("Success");
