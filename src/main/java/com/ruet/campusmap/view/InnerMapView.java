@@ -56,6 +56,14 @@ public class InnerMapView {
     private FloorPlan currentFloor;
     private Runnable onBackCallback;
 
+    // Reserved layout gaps around the inner map for UI controls
+    // Top and bottom have space for the header bar and zoom controls
+    // Left and right have less gap, with right leaving room for the floor switcher
+    private static final double GAP_TOP = 85.0;
+    private static final double GAP_BOTTOM = 85.0;
+    private static final double GAP_LEFT = 35.0;
+    private static final double GAP_RIGHT = 80.0;
+
     private final double mapWidth = 2300;
     private final double mapHeight = 1700;
     private double lastMouseX;
@@ -166,14 +174,26 @@ public class InnerMapView {
         // Bind Pan and Zoom interactions
         setupPanZoomInteractions();
 
-        // Responsive resize listeners: keep map clamped within view boundaries
+        // Responsive resize listeners: keep map clamped within view boundaries and maintain min scale
         container.widthProperty().addListener((obs, oldVal, newVal) -> {
             if (container.isVisible() && newVal.doubleValue() > 0) {
+                double minScale = getMinScale();
+                if (floorMapGroup.getScaleX() < minScale) {
+                    floorMapGroup.setScaleX(minScale);
+                    floorMapGroup.setScaleY(minScale);
+                    updateZoomLabel(minScale);
+                }
                 clampPosition();
             }
         });
         container.heightProperty().addListener((obs, oldVal, newVal) -> {
             if (container.isVisible() && newVal.doubleValue() > 0) {
+                double minScale = getMinScale();
+                if (floorMapGroup.getScaleX() < minScale) {
+                    floorMapGroup.setScaleX(minScale);
+                    floorMapGroup.setScaleY(minScale);
+                    updateZoomLabel(minScale);
+                }
                 clampPosition();
             }
         });
@@ -195,17 +215,44 @@ public class InnerMapView {
         return btn;
     }
 
+    private boolean isPannable() {
+        double viewWidth = getViewWidth();
+        double viewHeight = getViewHeight();
+        double allowedWidth = Math.max(100.0, viewWidth - GAP_LEFT - GAP_RIGHT);
+        double allowedHeight = Math.max(100.0, viewHeight - GAP_TOP - GAP_BOTTOM);
+        double scale = floorMapGroup.getScaleX();
+        double scaledWidth = mapWidth * scale;
+        double scaledHeight = mapHeight * scale;
+        return (scaledWidth > allowedWidth + 0.5) || (scaledHeight > allowedHeight + 0.5);
+    }
+
     private void setupPanZoomInteractions() {
         container.setOnMousePressed(event -> {
-            if (event.getTarget() == container || event.getTarget() == viewport) {
-                container.setCursor(Cursor.CLOSED_HAND);
+            if (event.getTarget() == container || event.getTarget() == viewport || event.getTarget() == floorMapGroup) {
+                if (isPannable()) {
+                    container.setCursor(Cursor.CLOSED_HAND);
+                } else {
+                    container.setCursor(Cursor.DEFAULT);
+                }
                 lastMouseX = event.getSceneX();
                 lastMouseY = event.getSceneY();
             }
         });
 
         container.setOnMouseReleased(event -> {
-            container.setCursor(Cursor.DEFAULT);
+            if (isPannable()) {
+                container.setCursor(Cursor.OPEN_HAND);
+            } else {
+                container.setCursor(Cursor.DEFAULT);
+            }
+        });
+
+        container.setOnMouseMoved(event -> {
+            if (isPannable()) {
+                container.setCursor(Cursor.OPEN_HAND);
+            } else {
+                container.setCursor(Cursor.DEFAULT);
+            }
         });
 
         container.setOnMouseDragged(event -> {
@@ -251,9 +298,21 @@ public class InnerMapView {
         return 800;
     }
 
+    /**
+     * Calculates the maximum zoomed-out scale such that the floor plan fits within
+     * the view area while preserving the top/bottom button gaps and side gaps.
+     */
+    public double getMinScale() {
+        double viewWidth = getViewWidth();
+        double viewHeight = getViewHeight();
+        double allowedWidth = Math.max(100.0, viewWidth - GAP_LEFT - GAP_RIGHT);
+        double allowedHeight = Math.max(100.0, viewHeight - GAP_TOP - GAP_BOTTOM);
+        return Math.min(allowedWidth / mapWidth, allowedHeight / mapHeight);
+    }
+
     private void zoomAtScenePoint(double factor, double sceneX, double sceneY) {
         double currentScale = floorMapGroup.getScaleX();
-        double minScale = 0.10; // Allows extensive zooming out to see entire map with background
+        double minScale = getMinScale();
         double maxScale = 4.5;
         double newScale = Math.max(minScale, Math.min(maxScale, currentScale * factor));
 
@@ -287,45 +346,60 @@ public class InnerMapView {
     }
 
     /**
-     * Centers and scales the floor plan so the whole SVG is fully visible within
-     * the window with clear margins.
+     * Fits the inner map to the screen at maximum zoom-out, centered within
+     * the area bounded by the top/bottom button gaps and side gaps.
      */
     public void fitToScreen() {
-        double viewWidth = getViewWidth();
-        double viewHeight = getViewHeight();
-
-        // Calculate available area reserving room for top header and side controls
-        double padX = 220; // 110px each side (gives clear clearance for right floor switcher)
-        double padY = 200; // clearance for top header & bottom controls
-
-        double availW = Math.max(300, viewWidth - padX);
-        double availH = Math.max(200, viewHeight - padY);
-
-        double fitScale = Math.min(availW / mapWidth, availH / mapHeight);
-        fitScale = Math.max(0.12, Math.min(1.0, fitScale));
+        double fitScale = getMinScale();
 
         floorMapGroup.setScaleX(fitScale);
         floorMapGroup.setScaleY(fitScale);
-        floorMapGroup.setTranslateX(0);
-        floorMapGroup.setTranslateY(15);
+
+        // Center map within the available gap-bounded area
+        double baseTx = (GAP_LEFT - GAP_RIGHT) / 2.0;
+        double baseTy = (GAP_TOP - GAP_BOTTOM) / 2.0;
+        floorMapGroup.setTranslateX(baseTx);
+        floorMapGroup.setTranslateY(baseTy);
+
         updateZoomLabel(fitScale);
         clampPosition();
     }
 
+    /**
+     * Clamps map position so it can NEVER be pushed into the button/margin gaps.
+     * When maximum zoomed out, scrolling is locked completely (zero scrolling).
+     * At higher zoom levels, the map can be panned, but its edges stop strictly at the gap boundaries.
+     */
     private void clampPosition() {
         double viewWidth = getViewWidth();
         double viewHeight = getViewHeight();
+        if (viewWidth <= 0 || viewHeight <= 0) return;
+
+        double allowedWidth = Math.max(100.0, viewWidth - GAP_LEFT - GAP_RIGHT);
+        double allowedHeight = Math.max(100.0, viewHeight - GAP_TOP - GAP_BOTTOM);
 
         double scale = floorMapGroup.getScaleX();
         double scaledWidth = mapWidth * scale;
         double scaledHeight = mapHeight * scale;
 
-        // Generous panning limits so map can never get lost but never locks up
-        double maxPanX = Math.max(viewWidth * 0.6, (scaledWidth - viewWidth) / 2.0 + 350);
-        double maxPanY = Math.max(viewHeight * 0.6, (scaledHeight - viewHeight) / 2.0 + 350);
+        // Base center offset in viewport to place map center midway within the allowed bounds
+        double baseTx = (GAP_LEFT - GAP_RIGHT) / 2.0;
+        double baseTy = (GAP_TOP - GAP_BOTTOM) / 2.0;
 
-        double clampedX = Math.max(-maxPanX, Math.min(maxPanX, floorMapGroup.getTranslateX()));
-        double clampedY = Math.max(-maxPanY, Math.min(maxPanY, floorMapGroup.getTranslateY()));
+        // Excess dimensions beyond the allowed area
+        double excessX = Math.max(0.0, scaledWidth - allowedWidth);
+        double excessY = Math.max(0.0, scaledHeight - allowedHeight);
+
+        // Translation bounds:
+        // If scaled <= allowed: excess is 0, minTx == maxTx == baseTx (completely locked, zero scrolling).
+        // If scaled > allowed: map edges stop exactly at the gap borders without entering them.
+        double minTx = baseTx - excessX / 2.0;
+        double maxTx = baseTx + excessX / 2.0;
+        double minTy = baseTy - excessY / 2.0;
+        double maxTy = baseTy + excessY / 2.0;
+
+        double clampedX = Math.max(minTx, Math.min(maxTx, floorMapGroup.getTranslateX()));
+        double clampedY = Math.max(minTy, Math.min(maxTy, floorMapGroup.getTranslateY()));
 
         floorMapGroup.setTranslateX(clampedX);
         floorMapGroup.setTranslateY(clampedY);
