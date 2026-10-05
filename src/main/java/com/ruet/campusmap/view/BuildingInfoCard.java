@@ -1,6 +1,8 @@
 package com.ruet.campusmap.view;
 
 import com.ruet.campusmap.model.BuildingPolygon;
+import com.ruet.campusmap.model.Teacher;
+import com.ruet.campusmap.service.TeacherDataLoader;
 import javafx.animation.FadeTransition;
 import javafx.animation.Interpolator;
 import javafx.animation.ParallelTransition;
@@ -24,6 +26,8 @@ import javafx.scene.paint.Color;
 import javafx.scene.shape.SVGPath;
 import javafx.util.Duration;
 
+import java.util.List;
+
 /**
  * Modern floating Google Maps-style place sheet that displays building or POI details
  * when clicked on the map, with smooth slide-up entrance animation and action chips.
@@ -34,6 +38,7 @@ public class BuildingInfoCard {
     private final Label categoryBadge;
     private final Label titleLabel;
     private final Label subtitleLabel;
+    private final VBox dynamicSection;
     private final Button directionsBtn;
     private final Button copyBtn;
     private final StackPane closeBtn;
@@ -154,10 +159,13 @@ public class BuildingInfoCard {
             pause.play();
         });
 
+        dynamicSection = new VBox(8);
+        dynamicSection.setFillWidth(true);
+
         HBox actionsRow = new HBox(8, directionsBtn, copyBtn, feedbackLabel);
         actionsRow.setAlignment(Pos.CENTER_LEFT);
 
-        cardContainer.getChildren().addAll(topRow, titleLabel, subtitleLabel, divider, actionsRow);
+        cardContainer.getChildren().addAll(topRow, titleLabel, subtitleLabel, dynamicSection, divider, actionsRow);
 
         StackPane.setAlignment(cardContainer, Pos.BOTTOM_LEFT);
         StackPane.setMargin(cardContainer, new Insets(0, 0, 80, 24));
@@ -192,10 +200,120 @@ public class BuildingInfoCard {
 
         categoryBadge.setText(category);
         subtitleLabel.setText("RUET Campus • Rajshahi-6204");
+
+        // Clear and populate faculty situated in this building
+        dynamicSection.getChildren().clear();
+        List<Teacher> teachersInBuilding = TeacherDataLoader.loadTeachers().stream()
+            .filter(t -> t.getBuildingName() != null && t.getBuildingName().equalsIgnoreCase(name))
+            .toList();
+
+        if (!teachersInBuilding.isEmpty()) {
+            VBox facultyBox = new VBox(4);
+            facultyBox.setPadding(new Insets(8, 10, 8, 10));
+            facultyBox.setStyle(
+                "-fx-background-color: " + (isDark ? "#2d2f31;" : "#f8f9fa;") +
+                "-fx-background-radius: 8px; -fx-border-color: " + (isDark ? "#3c4043;" : "#dadce0;") +
+                "-fx-border-radius: 8px; -fx-border-width: 1px;"
+            );
+
+            Label header = new Label("👨‍🏫 Faculty in this Building (" + teachersInBuilding.size() + "):");
+            header.setStyle("-fx-font-size: 11px; -fx-font-weight: bold; -fx-text-fill: " + (isDark ? "#9aa0a6;" : "#5f6368;"));
+            facultyBox.getChildren().add(header);
+
+            for (Teacher t : teachersInBuilding) {
+                HBox row = new HBox(6);
+                row.setAlignment(Pos.CENTER_LEFT);
+                Label tName = new Label("• " + t.getName());
+                tName.setStyle("-fx-font-size: 11px; -fx-text-fill: " + (isDark ? "#e8eaed;" : "#202124;"));
+                HBox.setHgrow(tName, Priority.ALWAYS);
+                Label tRoom = new Label(t.getRoomNumber() != null ? t.getRoomNumber() : "");
+                tRoom.setStyle("-fx-font-size: 10px; -fx-font-weight: bold; -fx-text-fill: " + (isDark ? "#8ab4f8;" : "#1a73e8;"));
+                row.getChildren().addAll(tName, tRoom);
+                facultyBox.getChildren().add(row);
+            }
+            dynamicSection.getChildren().add(facultyBox);
+        }
+
+        animateShow();
+    }
+
+    public void showTeacher(Teacher teacher, Runnable onNavigateToBuilding) {
+        if (teacher == null) return;
+
+        titleLabel.setText(teacher.getName());
+        categoryBadge.setText("👨‍🏫 FACULTY / TEACHER");
+
+        String desig = (teacher.getDesignation() != null && !teacher.getDesignation().isBlank()) ? teacher.getDesignation() : "Faculty Member";
+        String dept = (teacher.getDepartment() != null && !teacher.getDepartment().isBlank()) ? teacher.getDepartment() : "RUET";
+        subtitleLabel.setText(desig + " • Department of " + dept);
+
+        dynamicSection.getChildren().clear();
+
+        // Modern office details card
+        VBox officeCard = new VBox(6);
+        officeCard.setPadding(new Insets(10, 12, 10, 12));
+        officeCard.setStyle(
+            "-fx-background-color: " + (isDark ? "#2d2f31;" : "#f8f9fa;") +
+            "-fx-background-radius: 10px; -fx-border-color: " + (isDark ? "#3c4043;" : "#dadce0;") +
+            "-fx-border-radius: 10px; -fx-border-width: 1px;"
+        );
+
+        // Building Info Row
+        HBox bldRow = new HBox(8);
+        bldRow.setAlignment(Pos.CENTER_LEFT);
+        Label bldIcon = new Label("🏛️");
+        bldIcon.setStyle("-fx-font-size: 13px;");
+        VBox bldTextCol = new VBox(1);
+        Label bldTitle = new Label("Building Location");
+        bldTitle.setStyle("-fx-font-size: 10px; -fx-text-fill: " + (isDark ? "#9aa0a6;" : "#70757a;") + " -fx-font-weight: bold;");
+        Label bldValue = new Label(teacher.getBuildingName() != null ? teacher.getBuildingName() : "Not specified");
+        bldValue.setStyle("-fx-font-size: 12px; -fx-font-weight: bold; -fx-text-fill: " + (isDark ? "#e8eaed;" : "#202124;"));
+        bldTextCol.getChildren().addAll(bldTitle, bldValue);
+        bldRow.getChildren().addAll(bldIcon, bldTextCol);
+
+        // Room Info Row
+        HBox roomRow = new HBox(8);
+        roomRow.setAlignment(Pos.CENTER_LEFT);
+        Label roomIcon = new Label("🚪");
+        roomIcon.setStyle("-fx-font-size: 13px;");
+        VBox roomTextCol = new VBox(1);
+        Label roomTitle = new Label("Office / Room Number");
+        roomTitle.setStyle("-fx-font-size: 10px; -fx-text-fill: " + (isDark ? "#9aa0a6;" : "#70757a;") + " -fx-font-weight: bold;");
+        Label roomValue = new Label(teacher.getRoomNumber() != null ? teacher.getRoomNumber() : "Main Office");
+        roomValue.setStyle("-fx-font-size: 12px; -fx-font-weight: bold; -fx-text-fill: " + (isDark ? "#8ab4f8;" : "#1a73e8;"));
+        roomTextCol.getChildren().addAll(roomTitle, roomValue);
+        roomRow.getChildren().addAll(roomIcon, roomTextCol);
+
+        officeCard.getChildren().addAll(bldRow, roomRow);
+
+        // Action button to fly to office building on map
+        Button locateBtn = new Button("View Office Building on Map");
+        locateBtn.setMaxWidth(Double.MAX_VALUE);
+        locateBtn.setStyle(
+            "-fx-background-color: " + (isDark ? "#174ea6;" : "#e8f0fe;") +
+            "-fx-text-fill: " + (isDark ? "#d2e3fc;" : "#1a73e8;") +
+            "-fx-font-size: 12px; -fx-font-weight: bold; -fx-background-radius: 8px; " +
+            "-fx-cursor: hand; -fx-padding: 6 12;"
+        );
+        locateBtn.setOnAction(e -> {
+            if (onNavigateToBuilding != null) {
+                onNavigateToBuilding.run();
+            }
+        });
+
+        dynamicSection.getChildren().addAll(officeCard, locateBtn);
+
+        directionsBtn.setOnAction(e -> {
+            if (onNavigateToBuilding != null) {
+                onNavigateToBuilding.run();
+            }
+        });
+
         animateShow();
     }
 
     public void showPoi(String name, String category, String details) {
+        dynamicSection.getChildren().clear();
         titleLabel.setText(name);
         categoryBadge.setText(category != null ? category.toUpperCase() : "POINT OF INTEREST");
         subtitleLabel.setText(details != null && !details.isBlank() ? details : "RUET Campus Facilities");
