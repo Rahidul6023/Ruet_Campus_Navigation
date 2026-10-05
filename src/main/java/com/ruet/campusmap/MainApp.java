@@ -154,9 +154,14 @@ public class MainApp extends Application {
             });
         });
 
+        // Sync real-time building modifications between editor and search bar
+        editorManager.setOnBuildingCreated(searchBar::addOrUpdateBuilding);
+        editorManager.setOnBuildingUpdated(searchBar::addOrUpdateBuilding);
+        editorManager.setOnBuildingDeleted(searchBar::removeBuilding);
+
         // When a location is selected from search -> Display building card
         searchBar.setOnLocationSelected(locationName -> {
-            for (BuildingPolygon bp : initialBuildings) {
+            for (BuildingPolygon bp : editorManager.getSavedBuildings()) {
                 if (bp.getName() != null && bp.getName().equalsIgnoreCase(locationName)) {
                     buildingInfoCard.showBuilding(bp);
                     return;

@@ -88,6 +88,9 @@ public class MapEditorManager {
 
     private final java.util.function.Consumer<BuildingPolygon> onBuildingSelect;
     private final BuildingLabelsLayer buildingLabelsLayer;
+    private java.util.function.Consumer<BuildingPolygon> onBuildingCreated;
+    private java.util.function.Consumer<BuildingPolygon> onBuildingUpdated;
+    private java.util.function.Consumer<BuildingPolygon> onBuildingDeleted;
 
     public MapEditorManager(StackPane root, Pane polygonLayer) {
         this(root, polygonLayer, null, null);
@@ -703,6 +706,9 @@ public class MapEditorManager {
             if (buildingLabelsLayer != null) {
                 buildingLabelsLayer.addPolygonLabel(bp);
             }
+            if (onBuildingCreated != null) {
+                onBuildingCreated.accept(bp);
+            }
 
             resetDrawingState();
             buildingsDrawer.refreshData(savedBuildings);
@@ -828,6 +834,9 @@ public class MapEditorManager {
                 if (buildingLabelsLayer != null) {
                     buildingLabelsLayer.updatePolygonLabel(bp);
                 }
+                if (onBuildingUpdated != null) {
+                    onBuildingUpdated.accept(bp);
+                }
                 buildingsDrawer.refreshData(savedBuildings);
 
                 if (onBuildingSelect != null) {
@@ -839,6 +848,9 @@ public class MapEditorManager {
                 polygonLayer.getChildren().remove(poly);
                 if (buildingLabelsLayer != null) {
                     buildingLabelsLayer.removePolygonLabel(bp);
+                }
+                if (onBuildingDeleted != null) {
+                    onBuildingDeleted.accept(bp);
                 }
                 buildingsDrawer.refreshData(savedBuildings);
                 updateLayersBtn();
@@ -860,6 +872,9 @@ public class MapEditorManager {
             }
             if (buildingLabelsLayer != null) {
                 buildingLabelsLayer.removePolygonLabel(bp);
+            }
+            if (onBuildingDeleted != null) {
+                onBuildingDeleted.accept(bp);
             }
             buildingsDrawer.refreshData(savedBuildings);
             updateLayersBtn();
@@ -978,5 +993,21 @@ public class MapEditorManager {
         updateButtonStates();
         updateLayersBtn();
         updateTeachersBtn();
+    }
+
+    public void setOnBuildingCreated(java.util.function.Consumer<BuildingPolygon> onBuildingCreated) {
+        this.onBuildingCreated = onBuildingCreated;
+    }
+
+    public void setOnBuildingUpdated(java.util.function.Consumer<BuildingPolygon> onBuildingUpdated) {
+        this.onBuildingUpdated = onBuildingUpdated;
+    }
+
+    public void setOnBuildingDeleted(java.util.function.Consumer<BuildingPolygon> onBuildingDeleted) {
+        this.onBuildingDeleted = onBuildingDeleted;
+    }
+
+    public List<BuildingPolygon> getSavedBuildings() {
+        return savedBuildings;
     }
 }
