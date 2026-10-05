@@ -134,6 +134,64 @@ public class BuildingLabelsLayer {
     }
 
     /**
+     * Updates an existing polygon label's name, code, tooltip, and position.
+     */
+    public void updatePolygonLabel(BuildingPolygon bp) {
+        if (bp == null) return;
+        LabelEntry target = null;
+        for (LabelEntry e : entries) {
+            if (e.polygon == bp || (bp.getName() != null && e.fullName.equalsIgnoreCase(bp.getName()))) {
+                target = e;
+                break;
+            }
+        }
+        if (target == null) {
+            addPolygonLabel(bp);
+            return;
+        }
+
+        target.fullName = bp.getName();
+        target.code = (bp.getCodeName() != null && !bp.getCodeName().isBlank()) ? bp.getCodeName().trim() : "";
+        String tipText = (!target.code.isBlank()) ? (target.fullName + " (" + target.code + ")") : target.fullName;
+        target.tooltip.setText(tipText);
+
+        if (bp.getPoints() != null && !bp.getPoints().isEmpty()) {
+            double sumX = 0, sumY = 0;
+            int count = 0;
+            for (double[] pt : bp.getPoints()) {
+                if (pt.length >= 2) {
+                    sumX += pt[0];
+                    sumY += pt[1];
+                    count++;
+                }
+            }
+            if (count > 0) {
+                target.badge.setLayoutX((sumX / count) - 24);
+                target.badge.setLayoutY((sumY / count) - 12);
+            }
+        }
+        refresh();
+    }
+
+    /**
+     * Removes the label corresponding to a deleted building polygon.
+     */
+    public void removePolygonLabel(BuildingPolygon bp) {
+        if (bp == null) return;
+        LabelEntry toRemove = null;
+        for (LabelEntry e : entries) {
+            if (e.polygon == bp || (bp.getName() != null && e.fullName.equalsIgnoreCase(bp.getName()))) {
+                toRemove = e;
+                break;
+            }
+        }
+        if (toRemove != null) {
+            entries.remove(toRemove);
+            container.getChildren().remove(toRemove.badge);
+        }
+    }
+
+    /**
      * Refreshes label texts and visibility according to active AppSettings.
      */
     public void refresh() {
