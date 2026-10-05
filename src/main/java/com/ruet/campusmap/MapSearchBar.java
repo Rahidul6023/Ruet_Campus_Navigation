@@ -408,7 +408,7 @@ public class MapSearchBar {
     private void setupSelectionListener() {
         suggestionListView.getSelectionModel().selectedItemProperty().addListener((obs, oldVal, selectedItem) -> {
             if (selectedItem != null) {
-                handleSuggestionChosen(selectedItem);
+                javafx.application.Platform.runLater(() -> handleSuggestionChosen(selectedItem));
             }
         });
     }
@@ -594,6 +594,7 @@ public class MapSearchBar {
         }
         suggestionListView.setVisible(false);
         suggestionListView.setManaged(false);
+        suggestionListView.getSelectionModel().clearSelection();
         suggestions.clear();
     }
 
