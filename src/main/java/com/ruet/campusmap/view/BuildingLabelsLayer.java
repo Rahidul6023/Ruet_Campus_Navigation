@@ -18,8 +18,7 @@ import java.util.function.Consumer;
 
 /**
  * Layer that renders floating text labels/badges over campus buildings.
- * Supports displaying Short Codes (e.g., "CSE", "LIB") or Full Building Names,
- * as well as theme-aware styling (Light vs Dark mode).
+ * Displays user-defined short codes or full building names without fake auto-generated codes.
  */
 public class BuildingLabelsLayer {
 
@@ -28,27 +27,21 @@ public class BuildingLabelsLayer {
     private final AppSettings settings;
     private final Consumer<String> onLabelClick;
 
-    private static final Map<String, String> CODE_MAPPINGS = Map.of(
-        "Central Library", "LIB",
-        "CSE Department", "CSE",
-        "Auditorium", "AUD",
-        "Admin Building", "ADM",
-        "Cafeteria", "CAFE",
-        "Shahid Shahidul Islam Hall", "SHH",
-        "New Building", "NB"
-    );
-
     private static class LabelEntry {
         final StackPane badge;
         final Label label;
-        final String fullName;
-        final String code;
+        String fullName;
+        String code;
+        final Tooltip tooltip;
+        final BuildingPolygon polygon;
 
-        LabelEntry(StackPane badge, Label label, String fullName, String code) {
+        LabelEntry(StackPane badge, Label label, String fullName, String code, Tooltip tooltip, BuildingPolygon polygon) {
             this.badge = badge;
             this.label = label;
             this.fullName = fullName;
             this.code = code;
+            this.tooltip = tooltip;
+            this.polygon = polygon;
         }
     }
 
@@ -68,7 +61,11 @@ public class BuildingLabelsLayer {
             String name = entry.getKey();
             double[] coords = entry.getValue();
             if (coords != null && coords.length >= 2) {
-                addBuildingLabel(name, coords[0], coords[1]);
+                // Only add if not already registered via polygon
+                boolean exists = entries.stream().anyMatch(e -> e.fullName.equalsIgnoreCase(name));
+                if (!exists) {
+                    addBuildingLabel(name, "", coords[0], coords[1], null);
+                }
             }
         }
         refresh();
@@ -83,7 +80,7 @@ public class BuildingLabelsLayer {
         }
         // Avoid duplicate labels if already exists
         for (LabelEntry e : entries) {
-            if (e.fullName.equalsIgnoreCase(bp.getName())) {
+            if (e.polygon == bp || e.fullName.equalsIgnoreCase(bp.getName())) {
                 return;
             }
         }
@@ -98,15 +95,16 @@ public class BuildingLabelsLayer {
             }
         }
         if (count > 0) {
-            addBuildingLabel(bp.getName(), sumX / count, sumY / count);
+            String code = (bp.getCodeName() != null && !bp.getCodeName().isBlank()) ? bp.getCodeName().trim() : "";
+            addBuildingLabel(bp.getName(), code, sumX / count, sumY / count, bp);
             refresh();
         }
     }
 
-    private void addBuildingLabel(String fullName, double centerX, double centerY) {
-        String code = CODE_MAPPINGS.getOrDefault(fullName, generateShortCode(fullName));
+    private void addBuildingLabel(String fullName, String code, double centerX, double centerY, BuildingPolygon bp) {
+        String displayCode = (code != null && !code.isBlank()) ? code : fullName;
 
-        Label label = new Label(code);
+        Label label = new Label(displayCode);
         label.setStyle("-fx-font-family: 'Segoe UI', Roboto, sans-serif; -fx-font-weight: bold; -fx-font-size: 11px;");
 
         StackPane badge = new StackPane(label);
@@ -115,7 +113,8 @@ public class BuildingLabelsLayer {
         badge.setEffect(new DropShadow(4, 0, 2, Color.rgb(0, 0, 0, 0.25)));
         badge.setStyle("-fx-cursor: hand;");
 
-        Tooltip tooltip = new Tooltip(fullName + " (" + code + ")");
+        String tipText = (code != null && !code.isBlank()) ? (fullName + " (" + code + ")") : fullName;
+        Tooltip tooltip = new Tooltip(tipText);
         Tooltip.install(badge, tooltip);
 
         badge.setOnMouseClicked(e -> {
@@ -129,24 +128,9 @@ public class BuildingLabelsLayer {
         badge.setLayoutX(centerX - 24);
         badge.setLayoutY(centerY - 12);
 
-        LabelEntry entry = new LabelEntry(badge, label, fullName, code);
+        LabelEntry entry = new LabelEntry(badge, label, fullName, code, tooltip, bp);
         entries.add(entry);
         container.getChildren().add(badge);
-    }
-
-    private String generateShortCode(String name) {
-        if (name == null || name.isBlank()) return "BLD";
-        String[] parts = name.trim().split("\\s+");
-        if (parts.length == 1) {
-            return parts[0].substring(0, Math.min(4, parts[0].length())).toUpperCase();
-        }
-        StringBuilder sb = new StringBuilder();
-        for (String p : parts) {
-            if (!p.isBlank()) {
-                sb.append(Character.toUpperCase(p.charAt(0)));
-            }
-        }
-        return sb.length() > 4 ? sb.substring(0, 4) : sb.toString();
     }
 
     /**
@@ -160,7 +144,9 @@ public class BuildingLabelsLayer {
 
         for (LabelEntry e : entries) {
             if (mode == AppSettings.BuildingLabelMode.CODE) {
-                e.label.setText(e.code);
+                // If code is not set, fallback to full name instead of fake letters
+                String codeText = (e.code != null && !e.code.isBlank()) ? e.code : e.fullName;
+                e.label.setText(codeText);
             } else {
                 e.label.setText(e.fullName);
             }
