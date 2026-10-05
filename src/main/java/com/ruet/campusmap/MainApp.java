@@ -42,30 +42,40 @@ public class MainApp extends Application {
 
     @Override
     public void start(Stage stage) {
-        java.net.URL mapResource = getClass().getResource("/maps/ruet-campus-map-refined-v2.svg");
-        if (mapResource == null) {
-            mapResource = getClass().getResource("/maps/Ruet campus map refined v2.svg");
-        }
-        String svgUrl = (mapResource != null) ? mapResource.toExternalForm() : "";
-
         double mapWidth = 4190;
         double mapHeight = 1720;
+        double viewScaleFactor = 2.0;
+        double webViewWidth = mapWidth / viewScaleFactor;
+        double webViewHeight = mapHeight / viewScaleFactor;
+
+        // Load SVG map resource
+        String svgContent = "";
+        java.io.InputStream stream = getClass().getResourceAsStream("/maps/ruet-campus-map-refined-v2.svg");
+        if (stream == null) {
+            stream = getClass().getResourceAsStream("/maps/Ruet_academic_campus.svg");
+        }
+        final java.io.InputStream mapStream = stream;
+        if (mapStream != null) {
+            try (mapStream) {
+                svgContent = new String(mapStream.readAllBytes(), StandardCharsets.UTF_8);
+            } catch (Exception e) {
+                e.printStackTrace();
+            }
+        }
 
         // Settings Model
         AppSettings settings = new AppSettings();
 
-        // SVG Map Integration
+        // SVG Map Integration via HTML5 wrapper (ensures document.body exists and responsive scaling)
         WebView campusView = new WebView();
         campusView.setPageFill(Color.TRANSPARENT);
-        campusView.getEngine().load(svgUrl);
         String mapCss = "* { margin: 0; padding: 0; box-sizing: border-box; } " +
                         "html, body { margin: 0 !important; padding: 0 !important; width: 100% !important; height: 100% !important; overflow: hidden !important; background: transparent !important; } " +
                         "::-webkit-scrollbar { display: none !important; width: 0 !important; height: 0 !important; } " +
-                        "svg { width: 4190px !important; height: 1720px !important; display: block !important; }";
-        campusView.getEngine().setUserStyleSheetLocation(
-            "data:text/css;charset=utf-8," + 
-            URLEncoder.encode(mapCss, StandardCharsets.UTF_8)
-        );
+                        "svg { width: 100% !important; height: 100% !important; display: block !important; }";
+        String htmlContent = "<!DOCTYPE html><html><head><style>" + mapCss + "</style></head><body>" + svgContent + "</body></html>";
+        campusView.getEngine().loadContent(htmlContent, "text/html");
+
         campusView.getChildrenUnmodifiable().addListener((javafx.collections.ListChangeListener<javafx.scene.Node>) change -> {
             for (javafx.scene.Node node : campusView.lookupAll(".scroll-bar")) {
                 node.setVisible(false);
@@ -73,10 +83,11 @@ public class MainApp extends Application {
             }
         });
 
-        // Map Size Defining (Matches 4190x1720 SVG canvas)
-        campusView.setPrefSize(mapWidth, mapHeight);
-        campusView.setMinSize(mapWidth, mapHeight);
-        campusView.setMaxSize(mapWidth, mapHeight);
+        // Sized safely within GPU max texture limits (clamped to 4096 in D3D Prism) then scaled to 4190x1720
+        campusView.setPrefSize(webViewWidth, webViewHeight);
+        campusView.setMinSize(webViewWidth, webViewHeight);
+        campusView.setMaxSize(webViewWidth, webViewHeight);
+        campusView.getTransforms().setAll(new javafx.scene.transform.Scale(viewScaleFactor, viewScaleFactor, 0, 0));
         campusView.setMouseTransparent(true);
 
         // Creating Polygon layer
@@ -182,13 +193,13 @@ public class MainApp extends Application {
             try {
                 if (isDark) {
                     campusView.getEngine().executeScript(
-                        "document.documentElement.style.filter = 'invert(0.92) hue-rotate(180deg) brightness(0.9) contrast(1.15) saturate(1.2)';" +
-                        "document.body.style.backgroundColor = 'transparent';"
+                        "if (document.documentElement) document.documentElement.style.filter = 'invert(0.92) hue-rotate(180deg) brightness(0.9) contrast(1.15) saturate(1.2)';" +
+                        "if (document.body) document.body.style.backgroundColor = 'transparent';"
                     );
                 } else {
                     campusView.getEngine().executeScript(
-                        "document.documentElement.style.filter = 'none';" +
-                        "document.body.style.backgroundColor = 'transparent';"
+                        "if (document.documentElement) document.documentElement.style.filter = 'none';" +
+                        "if (document.body) document.body.style.backgroundColor = 'transparent';"
                     );
                 }
             } catch (Exception ignored) {}
@@ -210,7 +221,9 @@ public class MainApp extends Application {
         // Run theme apply when SVG map finishes loading
         campusView.getEngine().getLoadWorker().stateProperty().addListener((obs, oldState, newState) -> {
             if (newState == javafx.concurrent.Worker.State.SUCCEEDED) {
-                campusView.getEngine().executeScript("document.body.style.overflow='hidden'");
+                try {
+                    campusView.getEngine().executeScript("if (document.body) document.body.style.overflow='hidden';");
+                } catch (Exception ignored) {}
                 applyThemeState.run();
             }
         });
@@ -242,6 +255,7 @@ public class MainApp extends Application {
         };
 
         // Sets default zoom: average between minimum (height fit) and maximum zoom
+        final boolean[] hasCentered = new boolean[]{false};
         Runnable centerAndFitMap = () -> {
             double viewWidth = root.getWidth();
             double viewHeight = root.getHeight();
@@ -266,10 +280,11 @@ public class MainApp extends Application {
             mapGroup.setTranslateY(targetTy);
 
             clampMapPosition.run();
+            hasCentered[0] = true;
         };
 
         root.widthProperty().addListener((obs, oldVal, newVal) -> {
-            if (oldVal.doubleValue() == 0 && newVal.doubleValue() > 0) {
+            if (!hasCentered[0] && newVal.doubleValue() > 0 && root.getHeight() > 0) {
                 Platform.runLater(centerAndFitMap);
             } else if (newVal.doubleValue() > 0 && root.getHeight() > 0) {
                 double minScale = Math.max(root.getHeight() / mapHeight, newVal.doubleValue() / mapWidth);
@@ -281,7 +296,7 @@ public class MainApp extends Application {
             }
         });
         root.heightProperty().addListener((obs, oldVal, newVal) -> {
-            if (oldVal.doubleValue() == 0 && newVal.doubleValue() > 0) {
+            if (!hasCentered[0] && newVal.doubleValue() > 0 && root.getWidth() > 0) {
                 Platform.runLater(centerAndFitMap);
             } else if (newVal.doubleValue() > 0 && root.getWidth() > 0) {
                 double minScale = Math.max(newVal.doubleValue() / mapHeight, root.getWidth() / mapWidth);
