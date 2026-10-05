@@ -14,12 +14,12 @@ import javafx.stage.Modality;
 import javafx.stage.Stage;
 
 /**
- * Modal dialog to edit or delete an existing building polygon.
+ * Modal dialog to edit or delete an existing building polygon hitbox.
  */
 public class EditBuildingDialog {
 
     public interface SaveCallback {
-        void onSave(String newName, String newColor, boolean visibleToUsers);
+        void onSave(String newName, String newCodeName, String newColor, boolean visibleToUsers);
     }
 
     public static void show(
@@ -34,17 +34,25 @@ public class EditBuildingDialog {
         Label titleLabel = new Label("Edit Building Information");
         titleLabel.setStyle("-fx-font-weight: bold; -fx-font-size: 15px; -fx-text-fill: #202124;");
 
-        // Name input
-        Label nameLabel = new Label("Building Name:");
-        nameLabel.setStyle("-fx-font-size: 12px; -fx-text-fill: #5f6368;");
+        // 1. Name input
+        Label nameLabel = new Label("Building Name *:");
+        nameLabel.setStyle("-fx-font-size: 12px; -fx-text-fill: #5f6368; -fx-font-weight: bold;");
 
         TextField nameField = new TextField(model.getName() != null ? model.getName() : "");
         nameField.setPromptText("Enter building name");
-        nameField.setStyle("-fx-font-size: 13px;");
+        nameField.setStyle("-fx-font-size: 13px; -fx-background-radius: 8px; -fx-border-color: #dadce0; -fx-border-radius: 8px; -fx-padding: 6 10;");
 
-        // Color input
+        // 2. Code Name input
+        Label codeLabel = new Label("Building Code Name (e.g. CSE, AUD, ME):");
+        codeLabel.setStyle("-fx-font-size: 12px; -fx-text-fill: #5f6368; -fx-font-weight: bold;");
+
+        TextField codeField = new TextField(model.getCodeName() != null ? model.getCodeName() : "");
+        codeField.setPromptText("e.g. CSE (shown on map badges)");
+        codeField.setStyle("-fx-font-size: 13px; -fx-background-radius: 8px; -fx-border-color: #dadce0; -fx-border-radius: 8px; -fx-padding: 6 10;");
+
+        // 3. Color input
         Label colorLabel = new Label("Polygon Color:");
-        colorLabel.setStyle("-fx-font-size: 12px; -fx-text-fill: #5f6368;");
+        colorLabel.setStyle("-fx-font-size: 12px; -fx-text-fill: #5f6368; -fx-font-weight: bold;");
 
         Color initialColor;
         try {
@@ -95,9 +103,10 @@ public class EditBuildingDialog {
         saveBtn.setOnAction(e -> {
             String newName = nameField.getText().trim();
             if (newName.isEmpty()) {
-                nameField.setStyle("-fx-border-color: #d93025; -fx-background-radius: 8px; -fx-border-radius: 8px;");
+                nameField.setStyle("-fx-border-color: #d93025; -fx-background-radius: 8px; -fx-border-radius: 8px; -fx-padding: 6 10;");
                 return;
             }
+            String newCode = codeField.getText() != null ? codeField.getText().trim().toUpperCase() : "";
             Color picked = colorPicker.getValue();
             String hex = String.format("#%02X%02X%02X",
                 (int)(picked.getRed() * 255),
@@ -107,7 +116,7 @@ public class EditBuildingDialog {
             boolean isVisible = visibleCheck.isSelected();
             dialog.close();
             if (onSave != null) {
-                onSave.onSave(newName, hex, isVisible);
+                onSave.onSave(newName, newCode, hex, isVisible);
             }
         });
 
@@ -143,11 +152,18 @@ public class EditBuildingDialog {
         HBox buttonBar = new HBox(8, deleteBtn, spacer, cancelBtn, saveBtn);
         buttonBar.setAlignment(Pos.CENTER_RIGHT);
 
-        VBox layout = new VBox(14, titleLabel, new VBox(4, nameLabel, nameField), colorSection, visibilityCard, buttonBar);
+        VBox layout = new VBox(12,
+            titleLabel,
+            new VBox(4, nameLabel, nameField),
+            new VBox(4, codeLabel, codeField),
+            colorSection,
+            visibilityCard,
+            buttonBar
+        );
         layout.setPadding(new Insets(20));
         layout.setStyle("-fx-background-color: white;");
 
-        dialog.setScene(new Scene(layout, 400, 380));
+        dialog.setScene(new Scene(layout, 410, 440));
         dialog.setResizable(false);
         dialog.show();
     }

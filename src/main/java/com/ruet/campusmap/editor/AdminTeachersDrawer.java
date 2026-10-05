@@ -1,6 +1,7 @@
 package com.ruet.campusmap.editor;
 
-import com.ruet.campusmap.model.BuildingPolygon;
+import com.ruet.campusmap.model.Teacher;
+import com.ruet.campusmap.service.TeacherDataLoader;
 import javafx.geometry.Insets;
 import javafx.geometry.Pos;
 import javafx.scene.Node;
@@ -16,29 +17,31 @@ import java.util.List;
 import java.util.function.Consumer;
 
 /**
- * Slide-out / floating inspector drawer displaying all campus buildings and layers.
- * Provides quick search, visibility badges, edit, delete, and focus actions.
+ * Slide-out / floating inspector drawer displaying all RUET faculty/teachers.
+ * Provides quick search, add, edit, delete, and focus on building actions.
  */
-public class AdminBuildingsDrawer {
+public class AdminTeachersDrawer {
 
     private final VBox container;
     private final VBox listContainer;
     private final Label countBadge;
     private final TextField searchField;
     private final ScrollPane scrollPane;
+    private final Button addTeacherBtn;
 
-    private List<BuildingPolygon> allBuildings = new ArrayList<>();
-    private Consumer<BuildingPolygon> onEditAction;
-    private Consumer<BuildingPolygon> onDeleteAction;
-    private Consumer<BuildingPolygon> onFocusAction;
+    private List<Teacher> allTeachers = new ArrayList<>();
+    private Consumer<Teacher> onEditAction;
+    private Consumer<Teacher> onDeleteAction;
+    private Consumer<Teacher> onFocusAction;
+    private Runnable onAddAction;
 
     private boolean isDark = false;
 
-    public AdminBuildingsDrawer() {
+    public AdminTeachersDrawer() {
         container = new VBox(12);
-        container.setPrefWidth(330);
-        container.setMaxWidth(330);
-        container.setMaxHeight(480);
+        container.setPrefWidth(350);
+        container.setMaxWidth(350);
+        container.setMaxHeight(500);
         container.setPadding(new Insets(16));
         container.setEffect(new DropShadow(18, 0, 5, Color.rgb(0, 0, 0, 0.22)));
         container.setVisible(false);
@@ -48,11 +51,11 @@ public class AdminBuildingsDrawer {
         container.setOnMousePressed(javafx.event.Event::consume);
         container.setOnMouseDragged(javafx.event.Event::consume);
 
-        // 1. Header (Title, Count Badge, Close)
+        // 1. Header (Title, Count Badge, + Add Button, Close Button)
         HBox header = new HBox(8);
         header.setAlignment(Pos.CENTER_LEFT);
 
-        Label title = new Label("Campus Buildings");
+        Label title = new Label("Teachers & Faculty");
         title.setStyle("-fx-font-weight: bold; -fx-font-size: 15px; -fx-font-family: 'Segoe UI', Roboto, sans-serif;");
         HBox.setHgrow(title, Priority.ALWAYS);
 
@@ -62,29 +65,40 @@ public class AdminBuildingsDrawer {
             "-fx-background-radius: 10px; -fx-padding: 2 8; -fx-font-weight: bold; -fx-font-size: 11px;"
         );
 
+        addTeacherBtn = new Button("+ Add");
+        addTeacherBtn.setStyle(
+            "-fx-background-color: #1a73e8; -fx-text-fill: white; -fx-font-weight: bold; " +
+            "-fx-background-radius: 6px; -fx-font-size: 11px; -fx-padding: 4 10; -fx-cursor: hand;"
+        );
+        addTeacherBtn.setOnAction(e -> {
+            if (onAddAction != null) {
+                onAddAction.run();
+            }
+        });
+
         Button closeBtn = new Button("✕");
         closeBtn.setStyle("-fx-background-color: transparent; -fx-cursor: hand; -fx-font-size: 13px; -fx-font-weight: bold;");
         closeBtn.setOnAction(e -> hide());
 
-        header.getChildren().addAll(title, countBadge, closeBtn);
+        header.getChildren().addAll(title, countBadge, addTeacherBtn, closeBtn);
 
         // 2. Search Filter Field
         searchField = new TextField();
-        searchField.setPromptText("Filter buildings by name...");
+        searchField.setPromptText("Filter by name, dept, building, room...");
         searchField.setStyle(
             "-fx-background-color: #f1f3f4; -fx-background-radius: 8px; " +
             "-fx-border-color: #dadce0; -fx-border-radius: 8px; -fx-padding: 6 10; -fx-font-size: 12px;"
         );
         searchField.textProperty().addListener((obs, oldText, newText) -> filterList(newText));
 
-        // 3. Scrollable List of Buildings
+        // 3. Scrollable List of Teachers
         listContainer = new VBox(8);
         listContainer.setFillWidth(true);
 
         scrollPane = new ScrollPane(listContainer);
         scrollPane.setFitToWidth(true);
         scrollPane.setStyle("-fx-background: transparent; -fx-background-color: transparent; -fx-border-color: transparent;");
-        scrollPane.setPrefHeight(320);
+        scrollPane.setPrefHeight(340);
         VBox.setVgrow(scrollPane, Priority.ALWAYS);
 
         container.getChildren().addAll(header, searchField, scrollPane);
@@ -96,18 +110,20 @@ public class AdminBuildingsDrawer {
     }
 
     public void setCallbacks(
-        Consumer<BuildingPolygon> onEdit,
-        Consumer<BuildingPolygon> onDelete,
-        Consumer<BuildingPolygon> onFocus
+        Consumer<Teacher> onEdit,
+        Consumer<Teacher> onDelete,
+        Consumer<Teacher> onFocus,
+        Runnable onAdd
     ) {
         this.onEditAction = onEdit;
         this.onDeleteAction = onDelete;
         this.onFocusAction = onFocus;
+        this.onAddAction = onAdd;
     }
 
-    public void refreshData(List<BuildingPolygon> buildings) {
-        this.allBuildings = new ArrayList<>(buildings);
-        countBadge.setText(String.valueOf(allBuildings.size()));
+    public void refreshData(List<Teacher> teachers) {
+        this.allTeachers = new ArrayList<>(teachers);
+        countBadge.setText(String.valueOf(allTeachers.size()));
         filterList(searchField.getText());
     }
 
@@ -115,10 +131,13 @@ public class AdminBuildingsDrawer {
         listContainer.getChildren().clear();
         String query = filter != null ? filter.trim().toLowerCase() : "";
 
-        List<BuildingPolygon> matches = allBuildings.stream()
-            .filter(b -> query.isEmpty() ||
-                (b.getName() != null && b.getName().toLowerCase().contains(query)) ||
-                (b.getCodeName() != null && b.getCodeName().toLowerCase().contains(query)))
+        List<Teacher> matches = allTeachers.stream()
+            .filter(t -> query.isEmpty() ||
+                (t.getName() != null && t.getName().toLowerCase().contains(query)) ||
+                (t.getDepartment() != null && t.getDepartment().toLowerCase().contains(query)) ||
+                (t.getDesignation() != null && t.getDesignation().toLowerCase().contains(query)) ||
+                (t.getBuildingName() != null && t.getBuildingName().toLowerCase().contains(query)) ||
+                (t.getRoomNumber() != null && t.getRoomNumber().toLowerCase().contains(query)))
             .toList();
 
         if (matches.isEmpty()) {
@@ -126,10 +145,10 @@ public class AdminBuildingsDrawer {
             emptyBox.setAlignment(Pos.CENTER);
             emptyBox.setPadding(new Insets(24, 8, 24, 8));
 
-            Label emptyLabel = new Label(query.isEmpty() ? "No buildings defined yet" : "No matching buildings");
+            Label emptyLabel = new Label(query.isEmpty() ? "No faculty records found" : "No matching teachers");
             emptyLabel.setStyle("-fx-font-size: 12px; -fx-text-fill: #70757a; -fx-font-weight: bold;");
 
-            Label emptySub = new Label(query.isEmpty() ? "Click 'Draw Box' in the toolbar to create one" : "Try a different search term");
+            Label emptySub = new Label(query.isEmpty() ? "Click '+ Add' above to create one" : "Try searching by name or department");
             emptySub.setStyle("-fx-font-size: 11px; -fx-text-fill: #9aa0a6;");
 
             emptyBox.getChildren().addAll(emptyLabel, emptySub);
@@ -137,12 +156,12 @@ public class AdminBuildingsDrawer {
             return;
         }
 
-        for (BuildingPolygon bp : matches) {
-            listContainer.getChildren().add(createBuildingCard(bp));
+        for (Teacher teacher : matches) {
+            listContainer.getChildren().add(createTeacherCard(teacher));
         }
     }
 
-    private Node createBuildingCard(BuildingPolygon bp) {
+    private Node createTeacherCard(Teacher teacher) {
         HBox card = new HBox(10);
         card.setAlignment(Pos.CENTER_LEFT);
         card.setPadding(new Insets(8, 10, 8, 10));
@@ -153,62 +172,64 @@ public class AdminBuildingsDrawer {
             "-fx-border-radius: 8px; -fx-border-width: 1px;"
         );
 
-        // Color Swatch Circle
-        Color color;
-        try {
-            color = Color.web(bp.getColor() != null ? bp.getColor() : "#3498DB");
-        } catch (Exception e) {
-            color = Color.web("#3498DB");
-        }
-        Circle swatch = new Circle(7, color);
-        swatch.setStroke(Color.WHITE);
-        swatch.setStrokeWidth(1.0);
+        // Avatar Circle with initial letter
+        String initial = (teacher.getName() != null && !teacher.getName().isBlank())
+            ? teacher.getName().trim().substring(0, 1).toUpperCase()
+            : "T";
+        StackPane avatar = new StackPane();
+        Circle avatarBg = new Circle(14, Color.web("#1a73e8"));
+        Label avatarText = new Label(initial);
+        avatarText.setStyle("-fx-text-fill: white; -fx-font-weight: bold; -fx-font-size: 11px;");
+        avatar.getChildren().addAll(avatarBg, avatarText);
 
-        // Name & Meta
+        // Info Column
         VBox textCol = new VBox(2);
         HBox.setHgrow(textCol, Priority.ALWAYS);
 
-        HBox titleRow = new HBox(6);
-        titleRow.setAlignment(Pos.CENTER_LEFT);
-        Label nameLabel = new Label(bp.getName() != null ? bp.getName() : "Unnamed");
+        Label nameLabel = new Label(teacher.getName() != null ? teacher.getName() : "Unnamed Teacher");
         nameLabel.setStyle("-fx-font-weight: bold; -fx-font-size: 12px; -fx-text-fill: " + (isDark ? "#e8eaed;" : "#202124;"));
-        titleRow.getChildren().add(nameLabel);
 
-        if (bp.getCodeName() != null && !bp.getCodeName().isBlank()) {
-            Label codeBadge = new Label(bp.getCodeName());
-            codeBadge.setStyle(
-                "-fx-background-color: " + (isDark ? "#173154;" : "#e8f0fe;") +
-                "-fx-text-fill: " + (isDark ? "#8ab4f8;" : "#1a73e8;") +
-                "-fx-background-radius: 4px; -fx-padding: 1 5; -fx-font-weight: bold; -fx-font-size: 10px;"
-            );
-            titleRow.getChildren().add(codeBadge);
-        }
+        String desigDept = (teacher.getDesignation() != null ? teacher.getDesignation() : "") +
+            (teacher.getDepartment() != null && !teacher.getDepartment().isBlank() ? " • " + teacher.getDepartment() : "");
+        Label desigLabel = new Label(desigDept);
+        desigLabel.setStyle("-fx-font-size: 10px; -fx-text-fill: " + (isDark ? "#9aa0a6;" : "#70757a;"));
 
-        int ptCount = bp.getPoints() != null ? bp.getPoints().size() : 0;
-        String metaText = ptCount + " corners • " + (bp.isVisibleToUsers() ? "Visible to users" : "Hidden from users");
-        Label metaLabel = new Label(metaText);
-        metaLabel.setStyle("-fx-font-size: 10px; -fx-text-fill: " + (isDark ? "#9aa0a6;" : "#70757a;"));
+        String locText = (teacher.getBuildingName() != null ? teacher.getBuildingName() : "No building") +
+            (teacher.getRoomNumber() != null && !teacher.getRoomNumber().isBlank() ? " [" + teacher.getRoomNumber() + "]" : "");
+        Label locLabel = new Label(locText);
+        locLabel.setStyle(
+            "-fx-font-size: 10px; -fx-font-weight: bold; " +
+            "-fx-text-fill: " + (isDark ? "#8ab4f8;" : "#1a73e8;")
+        );
 
-        textCol.getChildren().addAll(titleRow, metaLabel);
+        textCol.getChildren().addAll(nameLabel, desigLabel, locLabel);
 
         // Action Buttons: Edit (Pencil), Delete (Trash)
-        Button editBtn = createIconButton("M3 17.25V21h3.75L17.81 9.94l-3.75-3.75L3 17.25zM20.71 7.04c.39-.39.39-1.02 0-1.41l-2.34-2.34c-.39-.39-1.02-.39-1.41 0l-1.83 1.83 3.75 3.75 1.83-1.83z", "#1a73e8", "Edit Building");
+        Button editBtn = createIconButton(
+            "M3 17.25V21h3.75L17.81 9.94l-3.75-3.75L3 17.25zM20.71 7.04c.39-.39.39-1.02 0-1.41l-2.34-2.34c-.39-.39-1.02-.39-1.41 0l-1.83 1.83 3.75 3.75 1.83-1.83z",
+            "#1a73e8",
+            "Edit Teacher"
+        );
         editBtn.setOnAction(e -> {
             if (onEditAction != null) {
-                onEditAction.accept(bp);
+                onEditAction.accept(teacher);
             }
         });
 
-        Button deleteBtn = createIconButton("M6 19c0 1.1.9 2 2 2h8c1.1 0 2-.9 2-2V7H6v12zM19 4h-3.5l-1-1h-5l-1 1H5v2h14V4z", "#d93025", "Delete Building");
+        Button deleteBtn = createIconButton(
+            "M6 19c0 1.1.9 2 2 2h8c1.1 0 2-.9 2-2V7H6v12zM19 4h-3.5l-1-1h-5l-1 1H5v2h14V4z",
+            "#d93025",
+            "Delete Teacher"
+        );
         deleteBtn.setOnAction(e -> {
             if (onDeleteAction != null) {
-                onDeleteAction.accept(bp);
+                onDeleteAction.accept(teacher);
             }
         });
 
-        card.getChildren().addAll(swatch, textCol, editBtn, deleteBtn);
+        card.getChildren().addAll(avatar, textCol, editBtn, deleteBtn);
 
-        // Hover effect on the card
+        // Hover effect
         card.setOnMouseEntered(e -> {
             card.setStyle(
                 "-fx-background-color: " + (isDark ? "#35373a;" : "#f1f3f4;") +
@@ -227,11 +248,11 @@ public class AdminBuildingsDrawer {
             );
         });
 
-        // Clicking card focuses on building
+        // Clicking card triggers focus on the teacher's building
         card.setOnMouseClicked(e -> {
             if (e.getTarget() != editBtn && e.getTarget() != deleteBtn) {
                 if (onFocusAction != null) {
-                    onFocusAction.accept(bp);
+                    onFocusAction.accept(teacher);
                 }
             }
         });
@@ -263,7 +284,6 @@ public class AdminBuildingsDrawer {
     public void show() {
         container.setVisible(true);
         container.setManaged(true);
-        container.toFront();
     }
 
     public void hide() {
@@ -291,27 +311,23 @@ public class AdminBuildingsDrawer {
         this.isDark = isDark;
         if (isDark) {
             container.setStyle(
-                "-fx-background-color: #202124; " +
-                "-fx-background-radius: 14px; " +
-                "-fx-border-color: #3c4043; " +
-                "-fx-border-radius: 14px; " +
-                "-fx-border-width: 1px;"
+                "-fx-background-color: #202124; -fx-background-radius: 14px; " +
+                "-fx-border-color: #3c4043; -fx-border-radius: 14px; -fx-border-width: 1px;"
             );
             searchField.setStyle(
-                "-fx-background-color: #2d2f31; -fx-background-radius: 8px; " +
-                "-fx-border-color: #3c4043; -fx-border-radius: 8px; -fx-padding: 6 10; -fx-font-size: 12px; -fx-text-fill: #e8eaed;"
+                "-fx-background-color: #303134; -fx-background-radius: 8px; " +
+                "-fx-border-color: #5f6368; -fx-border-radius: 8px; -fx-padding: 6 10; " +
+                "-fx-font-size: 12px; -fx-text-fill: #e8eaed; -fx-prompt-text-fill: #9aa0a6;"
             );
         } else {
             container.setStyle(
-                "-fx-background-color: #ffffff; " +
-                "-fx-background-radius: 14px; " +
-                "-fx-border-color: #dadce0; " +
-                "-fx-border-radius: 14px; " +
-                "-fx-border-width: 1px;"
+                "-fx-background-color: #ffffff; -fx-background-radius: 14px; " +
+                "-fx-border-color: #dadce0; -fx-border-radius: 14px; -fx-border-width: 1px;"
             );
             searchField.setStyle(
                 "-fx-background-color: #f1f3f4; -fx-background-radius: 8px; " +
-                "-fx-border-color: #dadce0; -fx-border-radius: 8px; -fx-padding: 6 10; -fx-font-size: 12px; -fx-text-fill: #202124;"
+                "-fx-border-color: #dadce0; -fx-border-radius: 8px; -fx-padding: 6 10; " +
+                "-fx-font-size: 12px; -fx-text-fill: #202124; -fx-prompt-text-fill: #70757a;"
             );
         }
         filterList(searchField.getText());

@@ -1,6 +1,9 @@
 package com.ruet.campusmap;
 
 import com.ruet.campusmap.model.BuildingPolygon;
+import com.ruet.campusmap.model.SearchSuggestion;
+import com.ruet.campusmap.model.Teacher;
+import com.ruet.campusmap.service.TeacherDataLoader;
 import javafx.animation.Interpolator;
 import javafx.animation.KeyFrame;
 import javafx.animation.KeyValue;
@@ -10,6 +13,8 @@ import javafx.collections.ObservableList;
 import javafx.geometry.Insets;
 import javafx.geometry.Pos;
 import javafx.scene.Group;
+import javafx.scene.control.Label;
+import javafx.scene.control.ListCell;
 import javafx.scene.control.ListView;
 import javafx.scene.control.Separator;
 import javafx.scene.control.TextField;
@@ -22,29 +27,35 @@ import javafx.scene.paint.Color;
 import javafx.scene.shape.SVGPath;
 import javafx.util.Duration;
 
+import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.function.Consumer;
 
 /**
  * Component responsible for creating an authentic Google Maps-style
- * pill-rounded floating search bar with icons and dropdown suggestions.
- *
- * It uses reactive listeners (textProperty, selectedItemProperty, setOnAction)
- * without any setOnClick functions.
+ * pill-rounded floating search bar with icons and dropdown suggestions
+ * supporting both campus places and faculty/teachers.
  */
 public class MapSearchBar {
 
     private final VBox wrapper;
     private final HBox searchCard;
     private final TextField searchField;
-    private final ListView<String> suggestionListView;
-    private final ObservableList<String> suggestions;
+    private final ListView<SearchSuggestion> suggestionListView;
+    private final ObservableList<SearchSuggestion> suggestions;
     private final SVGPath searchIcon;
     private final SVGPath clearIcon;
     private final SVGPath directionsIcon;
     private final Separator separator;
+    private final Group mapGroup;
+    private final StackPane rootPane;
+
+    private Consumer<Teacher> onTeacherSelected;
+    private Consumer<String> onLocationSelected;
     private boolean isDark = false;
+    private final List<BuildingPolygon> registeredBuildings = new ArrayList<>();
 
     // Searchable coordinates for campus locations: [X, Y] center point on the SVG map (calibrated for ruet-campus-map-refined-v2.svg)
     private final Map<String, double[]> locationCoordinates = new HashMap<>(Map.ofEntries(
@@ -72,24 +83,48 @@ public class MapSearchBar {
 
     public void registerBuildings(List<BuildingPolygon> buildings) {
         if (buildings == null) return;
+        registeredBuildings.clear();
+        registeredBuildings.addAll(buildings);
         for (BuildingPolygon bp : buildings) {
-            if (bp == null || bp.getName() == null || bp.getPoints() == null || bp.getPoints().isEmpty()) continue;
-            double sumX = 0, sumY = 0;
-            int count = 0;
-            for (double[] pt : bp.getPoints()) {
-                if (pt != null && pt.length >= 2) {
-                    sumX += pt[0];
-                    sumY += pt[1];
-                    count++;
-                }
+            indexBuildingCoordinates(bp);
+        }
+    }
+
+    public void addOrUpdateBuilding(BuildingPolygon bp) {
+        if (bp == null) return;
+        registeredBuildings.removeIf(b -> b == bp || (b.getName() != null && b.getName().equalsIgnoreCase(bp.getName())));
+        registeredBuildings.add(bp);
+        indexBuildingCoordinates(bp);
+    }
+
+    public void removeBuilding(BuildingPolygon bp) {
+        if (bp == null) return;
+        registeredBuildings.removeIf(b -> b == bp || (b.getName() != null && b.getName().equalsIgnoreCase(bp.getName())));
+        if (bp.getName() != null) {
+            locationCoordinates.remove(bp.getName());
+        }
+    }
+
+    private void indexBuildingCoordinates(BuildingPolygon bp) {
+        if (bp == null || bp.getName() == null || bp.getPoints() == null || bp.getPoints().isEmpty()) return;
+        double sumX = 0, sumY = 0;
+        int count = 0;
+        for (double[] pt : bp.getPoints()) {
+            if (pt != null && pt.length >= 2) {
+                sumX += pt[0];
+                sumY += pt[1];
+                count++;
             }
-            if (count > 0) {
-                locationCoordinates.putIfAbsent(bp.getName(), new double[]{sumX / count, sumY / count});
-            }
+        }
+        if (count > 0) {
+            locationCoordinates.put(bp.getName(), new double[]{sumX / count, sumY / count});
         }
     }
 
     public MapSearchBar(Group mapGroup, StackPane rootPane) {
+        this.mapGroup = mapGroup;
+        this.rootPane = rootPane;
+
         // --- 1. Left Magnifying Glass Icon (Google Maps Style) ---
         searchIcon = new SVGPath();
         searchIcon.setContent("M15.5 14h-.79l-.28-.27C15.41 12.59 16 11.11 16 9.5 16 5.91 13.09 3 9.5 3S3 5.91 3 9.5 5.91 16 9.5 16c1.61 0 3.09-.59 4.23-1.57l.27.28v.79l5 4.99L20.49 19l-4.99-5zm-6 0C7.01 14 5 11.99 5 9.5S7.01 5 9.5 5 14 7.01 14 9.5 11.99 14 9.5 14z");
@@ -99,11 +134,11 @@ public class MapSearchBar {
 
         // --- 2. Clean Borderless Input Field ---
         searchField = new TextField();
-        searchField.setPromptText("Search RUET Campus");
+        searchField.setPromptText("Search RUET campus, buildings, or teachers...");
         searchField.setStyle(
             "-fx-background-color: transparent; " +
             "-fx-border-color: transparent; " +
-            "-fx-font-size: 15px; " +
+            "-fx-font-size: 14px; " +
             "-fx-font-family: 'Segoe UI', Roboto, sans-serif; " +
             "-fx-text-fill: #202124; " +
             "-fx-prompt-text-fill: #70757a; " +
@@ -118,7 +153,6 @@ public class MapSearchBar {
         clearIcon.setVisible(false);
         clearIcon.setManaged(false);
 
-        // Clear search text on mouse press (no setOnClick used)
         clearIcon.setOnMousePressed(e -> {
             searchField.clear();
             searchField.requestFocus();
@@ -133,32 +167,74 @@ public class MapSearchBar {
         // --- 4. Right Google Maps Directions Icon (Blue diamond) ---
         directionsIcon = new SVGPath();
         directionsIcon.setContent("M21.71 11.29l-9-9a.996.996 0 0 0-1.41 0l-9 9a.996.996 0 0 0 0 1.41l9 9c.39.39 1.02.39 1.41 0l9-9a.996.996 0 0 0 0-1.41zM14 14.5V12h-4v3H8v-4c0-.55.45-1 1-1h5V7.5l3.5 3.5-3.5 3.5z");
-        directionsIcon.setFill(Color.web("#1a73e8")); // Google Maps Blue
+        directionsIcon.setFill(Color.web("#1a73e8"));
         directionsIcon.setScaleX(1.1);
         directionsIcon.setScaleY(1.1);
 
         // --- 5. The Rounded Pill Search Bar Card ---
         searchCard = new HBox(10, searchIcon, searchField, clearIcon, separator, directionsIcon);
         searchCard.setAlignment(Pos.CENTER_LEFT);
-        searchCard.setPrefWidth(380);
+        searchCard.setPrefWidth(400);
         searchCard.setPrefHeight(48);
         searchCard.setPadding(new Insets(0, 16, 0, 16));
 
-        // --- 6. Dropdown Suggestions List ---
+        // --- 6. Dropdown Suggestions List with Rich Visual Cells ---
         suggestions = FXCollections.observableArrayList();
         suggestionListView = new ListView<>(suggestions);
-        suggestionListView.setPrefWidth(380);
-        suggestionListView.setMaxHeight(180);
+        suggestionListView.setPrefWidth(400);
+        suggestionListView.setMaxHeight(220);
         suggestionListView.setVisible(false);
         suggestionListView.setManaged(false);
 
+        suggestionListView.setCellFactory(lv -> new ListCell<SearchSuggestion>() {
+            @Override
+            protected void updateItem(SearchSuggestion item, boolean empty) {
+                super.updateItem(item, empty);
+                if (empty || item == null) {
+                    setText(null);
+                    setGraphic(null);
+                    setStyle("-fx-background-color: transparent;");
+                } else {
+                    HBox row = new HBox(8);
+                    row.setAlignment(Pos.CENTER_LEFT);
+                    row.setPadding(new Insets(4, 6, 4, 6));
+
+                    Label iconLabel = new Label(item.getType() == SearchSuggestion.Type.TEACHER ? "👨‍🏫" : "📍");
+                    iconLabel.setStyle("-fx-font-size: 13px;");
+
+                    VBox textCol = new VBox(1);
+                    HBox.setHgrow(textCol, Priority.ALWAYS);
+
+                    Label title = new Label(item.getTitle());
+                    title.setStyle("-fx-font-size: 13px; -fx-font-weight: bold; -fx-text-fill: " + (isDark ? "#e8eaed;" : "#202124;"));
+
+                    Label sub = new Label(item.getSubtitle());
+                    sub.setStyle("-fx-font-size: 11px; -fx-text-fill: " + (isDark ? "#9aa0a6;" : "#70757a;"));
+                    textCol.getChildren().addAll(title, sub);
+
+                    Label badge = new Label(item.getType() == SearchSuggestion.Type.TEACHER ? "FACULTY" : "PLACE");
+                    badge.setStyle(
+                        "-fx-font-size: 9px; -fx-font-weight: bold; -fx-padding: 2 6; -fx-background-radius: 6px; " +
+                        (item.getType() == SearchSuggestion.Type.TEACHER
+                            ? (isDark ? "-fx-background-color: #173154; -fx-text-fill: #8ab4f8;" : "-fx-background-color: #e8f0fe; -fx-text-fill: #1a73e8;")
+                            : (isDark ? "-fx-background-color: #35373a; -fx-text-fill: #9aa0a6;" : "-fx-background-color: #f1f3f4; -fx-text-fill: #5f6368;"))
+                    );
+
+                    row.getChildren().addAll(iconLabel, textCol, badge);
+                    setGraphic(row);
+                    setText(null);
+                    setStyle("-fx-background-color: transparent; -fx-cursor: hand;");
+                }
+            }
+        });
+
         // --- 7. Main Floating Wrapper Container ---
         wrapper = new VBox(searchCard, suggestionListView);
-        wrapper.setMaxSize(420, VBox.USE_PREF_SIZE);
+        wrapper.setMaxSize(440, VBox.USE_PREF_SIZE);
         wrapper.setEffect(new DropShadow(15, 0, 4, Color.rgb(60, 64, 67, 0.28)));
-        wrapper.setPadding(new Insets(18, 0, 0, 0)); // Top offset
+        wrapper.setPadding(new Insets(18, 0, 0, 0));
 
-        // Prevent dragging the search bar from moving the campus map underneath
+        // Prevent dragging search bar from moving campus map underneath
         wrapper.setOnMousePressed(javafx.event.Event::consume);
         wrapper.setOnMouseDragged(javafx.event.Event::consume);
 
@@ -167,10 +243,18 @@ public class MapSearchBar {
 
         applyTheme(false);
 
-        // --- 8. Reactive Event Listeners (Zero setOnClick) ---
+        // --- 8. Reactive Event Listeners ---
         setupTextListener();
-        setupSelectionListener(mapGroup, rootPane);
-        setupEnterKeyListener(mapGroup, rootPane);
+        setupSelectionListener();
+        setupEnterKeyListener();
+    }
+
+    public void setOnTeacherSelected(Consumer<Teacher> onTeacherSelected) {
+        this.onTeacherSelected = onTeacherSelected;
+    }
+
+    public void setOnLocationSelected(Consumer<String> onLocationSelected) {
+        this.onLocationSelected = onLocationSelected;
     }
 
     public void applyTheme(boolean isDark) {
@@ -179,7 +263,7 @@ public class MapSearchBar {
             searchField.setStyle(
                 "-fx-background-color: transparent; " +
                 "-fx-border-color: transparent; " +
-                "-fx-font-size: 15px; " +
+                "-fx-font-size: 14px; " +
                 "-fx-font-family: 'Segoe UI', Roboto, sans-serif; " +
                 "-fx-text-fill: #e8eaed; " +
                 "-fx-prompt-text-fill: #9aa0a6; " +
@@ -193,14 +277,14 @@ public class MapSearchBar {
                 "-fx-border-color: #3c4043; " +
                 "-fx-border-width: 0 1px 1px 1px; " +
                 "-fx-border-radius: 0 0 16px 16px; " +
-                "-fx-font-size: 14px; " +
+                "-fx-font-size: 13px; " +
                 "-fx-font-family: 'Segoe UI', Roboto, sans-serif;"
             );
         } else {
             searchField.setStyle(
                 "-fx-background-color: transparent; " +
                 "-fx-border-color: transparent; " +
-                "-fx-font-size: 15px; " +
+                "-fx-font-size: 14px; " +
                 "-fx-font-family: 'Segoe UI', Roboto, sans-serif; " +
                 "-fx-text-fill: #202124; " +
                 "-fx-prompt-text-fill: #70757a; " +
@@ -214,7 +298,7 @@ public class MapSearchBar {
                 "-fx-border-color: #dadce0; " +
                 "-fx-border-width: 0 1px 1px 1px; " +
                 "-fx-border-radius: 0 0 16px 16px; " +
-                "-fx-font-size: 14px; " +
+                "-fx-font-size: 13px; " +
                 "-fx-font-family: 'Segoe UI', Roboto, sans-serif;"
             );
         }
@@ -227,7 +311,7 @@ public class MapSearchBar {
     }
 
     /**
-     * Listens to text changes dynamically (Reactive auto-suggest & clear button toggle).
+     * Listens to text changes dynamically (Auto-suggest teachers and locations).
      */
     private void setupTextListener() {
         searchField.textProperty().addListener((observable, oldText, newText) -> {
@@ -239,9 +323,39 @@ public class MapSearchBar {
                 hideDropdown();
             } else {
                 String query = newText.trim().toLowerCase();
-                List<String> matches = locationCoordinates.keySet().stream()
-                    .filter(name -> name.toLowerCase().contains(query))
-                    .toList();
+                List<SearchSuggestion> matches = new ArrayList<>();
+
+                // 1. Search faculty/teachers first
+                List<Teacher> facultyMatches = TeacherDataLoader.searchTeachers(query);
+                for (Teacher t : facultyMatches) {
+                    String sub = (t.getDesignation() != null ? t.getDesignation() : "") +
+                        (t.getDepartment() != null ? " • " + t.getDepartment() : "") +
+                        (t.getBuildingName() != null ? " [" + t.getBuildingName() + "]" : "");
+                    matches.add(new SearchSuggestion(SearchSuggestion.Type.TEACHER, t.getName(), sub, t));
+                }
+
+                // 2. Search campus buildings (by name or code name)
+                java.util.Set<String> matchedBuildingNames = new java.util.HashSet<>();
+                for (BuildingPolygon bp : registeredBuildings) {
+                    if (bp == null || bp.getName() == null) continue;
+                    boolean matchesName = bp.getName().toLowerCase().contains(query);
+                    boolean matchesCode = bp.getCodeName() != null && !bp.getCodeName().isBlank() && bp.getCodeName().toLowerCase().contains(query);
+
+                    if (matchesName || matchesCode) {
+                        matchedBuildingNames.add(bp.getName().toLowerCase());
+                        String sub = (bp.getCodeName() != null && !bp.getCodeName().isBlank())
+                            ? "Campus Building [" + bp.getCodeName() + "]"
+                            : "Campus Building / Landmark";
+                        matches.add(new SearchSuggestion(SearchSuggestion.Type.LOCATION, bp.getName(), sub, bp.getName()));
+                    }
+                }
+
+                // 3. Search other campus landmarks / POIs
+                for (String locName : locationCoordinates.keySet()) {
+                    if (!matchedBuildingNames.contains(locName.toLowerCase()) && locName.toLowerCase().contains(query)) {
+                        matches.add(new SearchSuggestion(SearchSuggestion.Type.LOCATION, locName, "Campus Building / Landmark", locName));
+                    }
+                }
 
                 if (matches.isEmpty()) {
                     hideDropdown();
@@ -254,14 +368,12 @@ public class MapSearchBar {
     }
 
     /**
-     * Listens to item selection in the suggestions dropdown (Reactive selection).
+     * Listens to item selection in the suggestions dropdown.
      */
-    private void setupSelectionListener(Group mapGroup, StackPane rootPane) {
+    private void setupSelectionListener() {
         suggestionListView.getSelectionModel().selectedItemProperty().addListener((obs, oldVal, selectedItem) -> {
             if (selectedItem != null) {
-                searchField.setText(selectedItem);
-                hideDropdown();
-                focusOnLocation(selectedItem, mapGroup, rootPane);
+                handleSuggestionChosen(selectedItem);
             }
         });
     }
@@ -269,28 +381,76 @@ public class MapSearchBar {
     /**
      * Listens to keyboard Enter in the search bar.
      */
-    private void setupEnterKeyListener(Group mapGroup, StackPane rootPane) {
+    private void setupEnterKeyListener() {
         searchField.setOnAction(event -> {
             String query = searchField.getText();
             if (query != null && !query.trim().isEmpty()) {
-                String trimmed = query.trim();
+                String trimmed = query.trim().toLowerCase();
+                if (!suggestions.isEmpty()) {
+                    handleSuggestionChosen(suggestions.get(0));
+                    return;
+                }
+
+                // Fallback check
+                List<Teacher> teachers = TeacherDataLoader.searchTeachers(trimmed);
+                if (!teachers.isEmpty()) {
+                    Teacher t = teachers.get(0);
+                    handleSuggestionChosen(new SearchSuggestion(SearchSuggestion.Type.TEACHER, t.getName(), t.getBuildingName(), t));
+                    return;
+                }
+
                 locationCoordinates.keySet().stream()
-                    .filter(name -> name.equalsIgnoreCase(trimmed) || name.toLowerCase().contains(trimmed.toLowerCase()))
+                    .filter(name -> name.equalsIgnoreCase(trimmed) || name.toLowerCase().contains(trimmed))
                     .findFirst()
-                    .ifPresent(matched -> {
-                        searchField.setText(matched);
-                        hideDropdown();
-                        focusOnLocation(matched, mapGroup, rootPane);
-                    });
+                    .ifPresent(matched -> handleSuggestionChosen(new SearchSuggestion(SearchSuggestion.Type.LOCATION, matched, "Campus Location", matched)));
             }
         });
+    }
+
+    private void handleSuggestionChosen(SearchSuggestion item) {
+        if (item == null) return;
+        hideDropdown();
+
+        if (item.getType() == SearchSuggestion.Type.TEACHER) {
+            Teacher teacher = (Teacher) item.getPayload();
+            searchField.setText(teacher.getName());
+            if (teacher.getBuildingName() != null && !teacher.getBuildingName().isBlank()) {
+                focusOnLocation(teacher.getBuildingName(), mapGroup, rootPane);
+            }
+            if (onTeacherSelected != null) {
+                onTeacherSelected.accept(teacher);
+            }
+        } else {
+            String locName = (String) item.getPayload();
+            searchField.setText(locName);
+            focusOnLocation(locName, mapGroup, rootPane);
+            if (onLocationSelected != null) {
+                onLocationSelected.accept(locName);
+            }
+        }
     }
 
     /**
      * Centers map view on selected location and applies smooth camera fly-to transition with 2.0x zoom.
      */
+    public void flyToLocation(String locationName) {
+        focusOnLocation(locationName, mapGroup, rootPane);
+    }
+
     private void focusOnLocation(String locationName, Group mapGroup, StackPane rootPane) {
+        if (locationName == null) return;
         double[] coords = locationCoordinates.get(locationName);
+        if (coords == null) {
+            // Fuzzy search for matched building coordinates
+            for (Map.Entry<String, double[]> entry : locationCoordinates.entrySet()) {
+                if (entry.getKey().equalsIgnoreCase(locationName) ||
+                    entry.getKey().toLowerCase().contains(locationName.toLowerCase()) ||
+                    locationName.toLowerCase().contains(entry.getKey().toLowerCase())) {
+                    coords = entry.getValue();
+                    break;
+                }
+            }
+        }
         if (coords == null) return;
 
         double targetX = coords[0];

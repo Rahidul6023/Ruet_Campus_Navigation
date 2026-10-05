@@ -3,6 +3,9 @@ package com.ruet.campusmap.editor;
 import com.google.gson.Gson;
 import com.google.gson.GsonBuilder;
 import com.ruet.campusmap.model.BuildingPolygon;
+import com.ruet.campusmap.model.Teacher;
+import com.ruet.campusmap.service.TeacherDataLoader;
+import com.ruet.campusmap.view.BuildingLabelsLayer;
 import javafx.geometry.Insets;
 import javafx.geometry.Orientation;
 import javafx.geometry.Point2D;
@@ -73,24 +76,35 @@ public class MapEditorManager {
     // Segment 3: View & Layers
     private Button previewBtn;
     private Button layersBtn;
+    private Button teachersBtn;
 
     // Segment 4: Save & Exit
     private Button saveBtn;
     private Button exitBtn;
 
-    // Slide-out Drawer
+    // Slide-out Drawers
     private AdminBuildingsDrawer buildingsDrawer;
+    private AdminTeachersDrawer teachersDrawer;
 
     private final java.util.function.Consumer<BuildingPolygon> onBuildingSelect;
+    private final BuildingLabelsLayer buildingLabelsLayer;
+    private java.util.function.Consumer<BuildingPolygon> onBuildingCreated;
+    private java.util.function.Consumer<BuildingPolygon> onBuildingUpdated;
+    private java.util.function.Consumer<BuildingPolygon> onBuildingDeleted;
 
     public MapEditorManager(StackPane root, Pane polygonLayer) {
-        this(root, polygonLayer, null);
+        this(root, polygonLayer, null, null);
     }
 
     public MapEditorManager(StackPane root, Pane polygonLayer, java.util.function.Consumer<BuildingPolygon> onBuildingSelect) {
+        this(root, polygonLayer, onBuildingSelect, null);
+    }
+
+    public MapEditorManager(StackPane root, Pane polygonLayer, java.util.function.Consumer<BuildingPolygon> onBuildingSelect, BuildingLabelsLayer buildingLabelsLayer) {
         this.root = root;
         this.polygonLayer = polygonLayer;
         this.onBuildingSelect = onBuildingSelect;
+        this.buildingLabelsLayer = buildingLabelsLayer;
 
         // Load existing saved buildings so subsequent saves don't overwrite them
         List<BuildingPolygon> existing = com.ruet.campusmap.service.PolygonDataLoader.loadBuildingPolygons();
@@ -99,6 +113,7 @@ public class MapEditorManager {
         setupPreviewLayer();
         setupStatusPill();
         setupBuildingsDrawer();
+        setupTeachersDrawer();
         setupToolbar();
         setupMouseListeners();
         setupKeyListeners();
@@ -152,6 +167,53 @@ public class MapEditorManager {
         buildingsDrawer.refreshData(savedBuildings);
     }
 
+    private void setupTeachersDrawer() {
+        teachersDrawer = new AdminTeachersDrawer();
+        teachersDrawer.setCallbacks(
+            this::openEditTeacherDialog,
+            this::deleteTeacher,
+            this::focusOnTeacherBuilding,
+            this::openAddTeacherDialog
+        );
+        teachersDrawer.refreshData(TeacherDataLoader.loadTeachers());
+    }
+
+    private void openAddTeacherDialog() {
+        EditTeacherDialog.show(null, savedTeacher -> {
+            TeacherDataLoader.addTeacher(savedTeacher);
+            teachersDrawer.refreshData(TeacherDataLoader.loadTeachers());
+            updateTeachersBtn();
+        }, null);
+    }
+
+    private void openEditTeacherDialog(Teacher teacher) {
+        EditTeacherDialog.show(teacher, updated -> {
+            TeacherDataLoader.updateTeacher(updated);
+            teachersDrawer.refreshData(TeacherDataLoader.loadTeachers());
+            updateTeachersBtn();
+        }, () -> deleteTeacher(teacher));
+    }
+
+    private void deleteTeacher(Teacher teacher) {
+        if (teacher == null) return;
+        TeacherDataLoader.deleteTeacher(teacher.getId());
+        teachersDrawer.refreshData(TeacherDataLoader.loadTeachers());
+        updateTeachersBtn();
+    }
+
+    private void focusOnTeacherBuilding(Teacher teacher) {
+        if (teacher == null || teacher.getBuildingName() == null) return;
+        String bldName = teacher.getBuildingName().trim();
+        for (BuildingPolygon bp : savedBuildings) {
+            if (bp.getName() != null && bp.getName().equalsIgnoreCase(bldName)) {
+                if (onBuildingSelect != null) {
+                    onBuildingSelect.accept(bp);
+                }
+                break;
+            }
+        }
+    }
+
     private void setupToolbar() {
         toolbar = new HBox(6);
         toolbar.setAlignment(Pos.CENTER);
@@ -195,11 +257,26 @@ public class MapEditorManager {
 
         layersBtn = createDockButton("M11.99 18.54l-7.37-5.73L3 14.07l9 7 9-7-1.63-1.27-7.38 5.74zM12 16l7.36-5.73L21 9.07l-9-7-9 7 1.63 1.2L12 16z", "Buildings (" + savedBuildings.size() + ")", "Toggle building list inspector");
         layersBtn.setOnAction(e -> {
+            if (teachersDrawer.isVisible()) {
+                teachersDrawer.hide();
+                updateTeachersBtn();
+            }
             buildingsDrawer.toggle();
             updateLayersBtn();
         });
 
-        HBox viewSegment = new HBox(3, previewBtn, layersBtn);
+        int initialTeacherCount = TeacherDataLoader.loadTeachers().size();
+        teachersBtn = createDockButton("M12 12c2.21 0 4-1.79 4-4s-1.79-4-4-4-4 1.79-4 4 1.79 4 4 4zm0 2c-2.67 0-8 1.34-8 4v2h16v-2c0-2.66-5.33-4-8-4z", "Teachers (" + initialTeacherCount + ")", "Manage faculty, teachers, and office locations");
+        teachersBtn.setOnAction(e -> {
+            if (buildingsDrawer.isVisible()) {
+                buildingsDrawer.hide();
+                updateLayersBtn();
+            }
+            teachersDrawer.toggle();
+            updateTeachersBtn();
+        });
+
+        HBox viewSegment = new HBox(3, previewBtn, layersBtn, teachersBtn);
         viewSegment.setAlignment(Pos.CENTER);
 
         // --- SEGMENT 4: Save & Exit ---
@@ -406,6 +483,25 @@ public class MapEditorManager {
         }
     }
 
+    private void updateTeachersBtn() {
+        if (teachersBtn == null || teachersDrawer == null) return;
+        Object[] data = (Object[]) teachersBtn.getUserData();
+        Label lbl = (Label) data[1];
+        SVGPath icon = (SVGPath) data[0];
+        int count = TeacherDataLoader.loadTeachers().size();
+        lbl.setText("Teachers (" + count + ")");
+
+        if (teachersDrawer.isVisible()) {
+            teachersBtn.setStyle("-fx-background-color: #e8f0fe; -fx-background-radius: 17px; -fx-cursor: hand; -fx-padding: 4 12;");
+            icon.setFill(Color.web("#1a73e8"));
+            lbl.setStyle("-fx-font-size: 12px; -fx-font-weight: bold; -fx-text-fill: #1a73e8;");
+        } else {
+            teachersBtn.setStyle("-fx-background-color: transparent; -fx-background-radius: 17px; -fx-cursor: hand; -fx-padding: 4 12;");
+            icon.setFill(Color.web(isDark ? "#9aa0a6" : "#5f6368"));
+            lbl.setStyle("-fx-font-size: 12px; -fx-font-weight: bold; -fx-text-fill: " + (isDark ? "#9aa0a6;" : "#5f6368;"));
+        }
+    }
+
     private void toggleDrawMode() {
         isDrawMode = !isDrawMode;
         if (!isDrawMode && !currentPoints.isEmpty()) {
@@ -468,6 +564,12 @@ public class MapEditorManager {
             if (!active) return;
 
             if (event.getCode() == KeyCode.ESCAPE) {
+                if (teachersDrawer != null && teachersDrawer.isVisible()) {
+                    teachersDrawer.hide();
+                    updateTeachersBtn();
+                    event.consume();
+                    return;
+                }
                 if (buildingsDrawer.isVisible()) {
                     buildingsDrawer.hide();
                     updateLayersBtn();
@@ -601,6 +703,13 @@ public class MapEditorManager {
             }, showAdminBoxes);
             polygonLayer.getChildren().add(finalPoly);
 
+            if (buildingLabelsLayer != null) {
+                buildingLabelsLayer.addPolygonLabel(bp);
+            }
+            if (onBuildingCreated != null) {
+                onBuildingCreated.accept(bp);
+            }
+
             resetDrawingState();
             buildingsDrawer.refreshData(savedBuildings);
             updateLayersBtn();
@@ -624,6 +733,16 @@ public class MapEditorManager {
         TextField nameField = new TextField("New Building");
         nameField.setPromptText("e.g. CSE Department");
         nameField.setStyle(
+            "-fx-background-color: #f1f3f4; -fx-background-radius: 8px; " +
+            "-fx-border-color: #dadce0; -fx-border-radius: 8px; -fx-padding: 8 12; -fx-font-size: 13px;"
+        );
+
+        Label codeLabel = new Label("Building Code Name (e.g. CSE, AUD, ME):");
+        codeLabel.setStyle("-fx-font-size: 12px; -fx-text-fill: #5f6368; -fx-font-weight: bold;");
+
+        TextField codeField = new TextField("");
+        codeField.setPromptText("e.g. CSE (shown on map badges)");
+        codeField.setStyle(
             "-fx-background-color: #f1f3f4; -fx-background-radius: 8px; " +
             "-fx-border-color: #dadce0; -fx-border-radius: 8px; -fx-padding: 8 12; -fx-font-size: 13px;"
         );
@@ -664,13 +783,14 @@ public class MapEditorManager {
         visibilityCard.setPadding(new Insets(10));
         visibilityCard.setStyle("-fx-background-color: #f8f9fa; -fx-background-radius: 8px; -fx-border-color: #dadce0; -fx-border-radius: 8px;");
 
-        content.getChildren().addAll(nameLabel, nameField, colorSection, visibilityCard);
+        content.getChildren().addAll(nameLabel, nameField, codeLabel, codeField, colorSection, visibilityCard);
         dialog.getDialogPane().setContent(content);
 
         dialog.setResultConverter(dialogButton -> {
             if (dialogButton == finishButtonType) {
                 String name = nameField.getText().trim();
                 if (name.isEmpty()) name = "New Building";
+                String code = codeField.getText() != null ? codeField.getText().trim().toUpperCase() : "";
                 Color c = colorPicker.getValue();
                 String hex = String.format("#%02X%02X%02X",
                     (int)(c.getRed() * 255),
@@ -678,7 +798,7 @@ public class MapEditorManager {
                     (int)(c.getBlue() * 255)
                 );
                 boolean visibleToUsers = visibleCheck.isSelected();
-                return new BuildingPolygon(name, hex, points, visibleToUsers);
+                return new BuildingPolygon(name, code, hex, points, visibleToUsers);
             }
             return null;
         });
@@ -704,12 +824,19 @@ public class MapEditorManager {
     private void openEditBuildingDialog(BuildingPolygon bp, Polygon poly) {
         EditBuildingDialog.show(
             bp,
-            (newName, newColor, visibleToUsers) -> {
+            (newName, newCodeName, newColor, visibleToUsers) -> {
                 bp.setName(newName);
+                bp.setCodeName(newCodeName);
                 bp.setColor(newColor);
                 bp.setVisibleToUsers(visibleToUsers);
 
                 refreshPolygonVisuals();
+                if (buildingLabelsLayer != null) {
+                    buildingLabelsLayer.updatePolygonLabel(bp);
+                }
+                if (onBuildingUpdated != null) {
+                    onBuildingUpdated.accept(bp);
+                }
                 buildingsDrawer.refreshData(savedBuildings);
 
                 if (onBuildingSelect != null) {
@@ -719,6 +846,12 @@ public class MapEditorManager {
             () -> {
                 savedBuildings.remove(bp);
                 polygonLayer.getChildren().remove(poly);
+                if (buildingLabelsLayer != null) {
+                    buildingLabelsLayer.removePolygonLabel(bp);
+                }
+                if (onBuildingDeleted != null) {
+                    onBuildingDeleted.accept(bp);
+                }
                 buildingsDrawer.refreshData(savedBuildings);
                 updateLayersBtn();
             }
@@ -736,6 +869,12 @@ public class MapEditorManager {
             Polygon poly = findPolygonNode(bp);
             if (poly != null) {
                 polygonLayer.getChildren().remove(poly);
+            }
+            if (buildingLabelsLayer != null) {
+                buildingLabelsLayer.removePolygonLabel(bp);
+            }
+            if (onBuildingDeleted != null) {
+                onBuildingDeleted.accept(bp);
             }
             buildingsDrawer.refreshData(savedBuildings);
             updateLayersBtn();
@@ -787,6 +926,7 @@ public class MapEditorManager {
             updateModeButtons();
             updateButtonStates();
             updateLayersBtn();
+            updateTeachersBtn();
 
             if (!root.getChildren().contains(toolbar)) {
                 root.getChildren().add(toolbar);
@@ -797,8 +937,12 @@ public class MapEditorManager {
             if (!root.getChildren().contains(buildingsDrawer.getContainer())) {
                 root.getChildren().add(buildingsDrawer.getContainer());
             }
+            if (!root.getChildren().contains(teachersDrawer.getContainer())) {
+                root.getChildren().add(teachersDrawer.getContainer());
+            }
 
             buildingsDrawer.refreshData(savedBuildings);
+            teachersDrawer.refreshData(TeacherDataLoader.loadTeachers());
             refreshPolygonVisuals();
         }
     }
@@ -811,9 +955,11 @@ public class MapEditorManager {
             polygonLayer.setCursor(javafx.scene.Cursor.DEFAULT);
             resetDrawingState();
             buildingsDrawer.hide();
+            teachersDrawer.hide();
             root.getChildren().remove(toolbar);
             root.getChildren().remove(statusPill);
             root.getChildren().remove(buildingsDrawer.getContainer());
+            root.getChildren().remove(teachersDrawer.getContainer());
             refreshPolygonVisuals();
         }
     }
@@ -840,8 +986,28 @@ public class MapEditorManager {
         if (buildingsDrawer != null) {
             buildingsDrawer.applyTheme(isDark);
         }
+        if (teachersDrawer != null) {
+            teachersDrawer.applyTheme(isDark);
+        }
         updateModeButtons();
         updateButtonStates();
         updateLayersBtn();
+        updateTeachersBtn();
+    }
+
+    public void setOnBuildingCreated(java.util.function.Consumer<BuildingPolygon> onBuildingCreated) {
+        this.onBuildingCreated = onBuildingCreated;
+    }
+
+    public void setOnBuildingUpdated(java.util.function.Consumer<BuildingPolygon> onBuildingUpdated) {
+        this.onBuildingUpdated = onBuildingUpdated;
+    }
+
+    public void setOnBuildingDeleted(java.util.function.Consumer<BuildingPolygon> onBuildingDeleted) {
+        this.onBuildingDeleted = onBuildingDeleted;
+    }
+
+    public List<BuildingPolygon> getSavedBuildings() {
+        return savedBuildings;
     }
 }
