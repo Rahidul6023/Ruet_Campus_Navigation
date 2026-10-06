@@ -62,7 +62,8 @@
         1135.0401611328125
       ]
     ],
-    "visibleToUsers": false
+    "visibleToUsers": false,
+    "imagePath": "images/buildings/auditorium.jpg"
   },
   {
     "name": "Mechanical Building (Construct.)",
@@ -248,7 +249,8 @@
         1165.2857666015625
       ]
     ],
-    "visibleToUsers": false
+    "visibleToUsers": false,
+    "imagePath": "images/buildings/cafeteria.jpg"
   },
   {
     "name": "Shahid Minar",
@@ -280,7 +282,8 @@
         1053.673095703125
       ]
     ],
-    "visibleToUsers": false
+    "visibleToUsers": false,
+    "imagePath": "images/buildings/shahid_minar.jpg"
   },
   {
     "name": "Administration Building",
@@ -312,7 +315,8 @@
         1054.0777587890625
       ]
     ],
-    "visibleToUsers": false
+    "visibleToUsers": false,
+    "imagePath": "images/buildings/administration_building.jpg"
   },
   {
     "name": "Civil Building(Construct.)",
@@ -445,7 +449,8 @@
         606.3589477539062
       ]
     ],
-    "visibleToUsers": false
+    "visibleToUsers": false,
+    "imagePath": "images/buildings/civil_building.jpg"
   },
   {
     "name": "CME Building",
@@ -485,7 +490,8 @@
         1099.875732421875
       ]
     ],
-    "visibleToUsers": false
+    "visibleToUsers": false,
+    "imagePath": "images/buildings/cme_building.jpg"
   },
   {
     "name": "Heat Engine Building",
@@ -565,7 +571,8 @@
         929.4345092773438
       ]
     ],
-    "visibleToUsers": false
+    "visibleToUsers": false,
+    "imagePath": "images/buildings/central_library.jpg"
   },
   {
     "name": "Post Graduate Building",
@@ -1179,6 +1186,76 @@
         954.3543701171875
       ]
     ],
+    "visibleToUsers": false,
+    "imagePath": "images/buildings/central_mosque.jpg"
+  },
+  {
+    "name": "Administration Building(Construc.)",
+    "codeName": "ADM",
+    "color": "#3498DB",
+    "points": [
+      [
+        660.8515625,
+        830.531005859375
+      ],
+      [
+        687.0577392578125,
+        828.1486206054688
+      ],
+      [
+        685.8665161132812,
+        766.2067260742188
+      ],
+      [
+        766.8674926757812,
+        767.39794921875
+      ],
+      [
+        766.8674926757812,
+        790.0305786132812
+      ],
+      [
+        732.322998046875,
+        794.7952880859375
+      ],
+      [
+        765.6763305664062,
+        807.8984375
+      ],
+      [
+        766.8674926757812,
+        869.8402709960938
+      ],
+      [
+        660.8515625,
+        871.031494140625
+      ]
+    ],
     "visibleToUsers": false
+  },
+  {
+    "name": "Bangla Tiffin Tong",
+    "codeName": "BTT",
+    "color": "#3498DB",
+    "points": [
+      [
+        2003.3232421875,
+        761.4419555664062
+      ],
+      [
+        2101.000732421875,
+        759.0595703125
+      ],
+      [
+        2099.8095703125,
+        829.33984375
+      ],
+      [
+        1999.7496337890625,
+        829.33984375
+      ]
+    ],
+    "visibleToUsers": false,
+    "imagePath": "images/buildings/bangla_tiffin_tong.jpg"
   }
 ]
