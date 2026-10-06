@@ -105,6 +105,34 @@ public class BuildingImageStorage {
         return null;
     }
 
+    /**
+     * Checks if a picture already exists on disk or classpath for this building name,
+     * even if imagePath was not explicitly set in JSON.
+     */
+    public static String findExistingImageForBuilding(String buildingName) {
+        if (buildingName == null || buildingName.isBlank()) return null;
+        String safeName = sanitizeBuildingName(buildingName);
+        String[] supportedExts = {"jpg", "jpeg", "png", "webp"};
+
+        for (String ext : supportedExts) {
+            String fileName = safeName + "." + ext;
+            String relPath = "images/buildings/" + fileName;
+
+            File srcFile = new File(RESOURCES_DIR, fileName);
+            if (srcFile.exists()) {
+                return relPath;
+            }
+            File targetFile = new File(TARGET_DIR, fileName);
+            if (targetFile.exists()) {
+                return relPath;
+            }
+            if (BuildingImageStorage.class.getResource("/" + relPath) != null) {
+                return relPath;
+            }
+        }
+        return null;
+    }
+
     private static String sanitizeBuildingName(String name) {
         if (name == null || name.isBlank()) {
             return "building_" + System.currentTimeMillis();

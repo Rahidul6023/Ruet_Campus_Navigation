@@ -1,6 +1,7 @@
 package com.ruet.campusmap.service;
 
 import com.google.gson.Gson;
+import com.google.gson.GsonBuilder;
 import com.google.gson.reflect.TypeToken;
 import com.ruet.campusmap.model.BuildingPolygon;
 import com.ruet.campusmap.view.BuildingHoverTooltip;
@@ -14,6 +15,7 @@ import javafx.util.Duration;
 
 import java.io.File;
 import java.io.FileReader;
+import java.io.FileWriter;
 import java.io.InputStream;
 import java.io.InputStreamReader;
 import java.lang.reflect.Type;
@@ -28,43 +30,94 @@ public class PolygonDataLoader {
 
     private static final String JSON_RESOURCE_PATH = "/data/campus.json";
     private static final String JSON_FILE_PATH = "src/main/resources/data/campus.json";
+    private static final String JSON_TARGET_PATH = "target/classes/data/campus.json";
+    private static final Gson GSON = new GsonBuilder().setPrettyPrinting().create();
+    private static final Type LIST_TYPE = new TypeToken<List<BuildingPolygon>>() {}.getType();
 
     /**
      * Loads the list of BuildingPolygon data models from campus.json.
      * Prefers the local disk file (for immediately saved edits), and falls back to classpath resource.
+     * Also auto-detects existing building pictures from images/buildings/ if missing from JSON.
      */
     public static List<BuildingPolygon> loadBuildingPolygons() {
-        Gson gson = new Gson();
-        Type listType = new TypeToken<List<BuildingPolygon>>() {}.getType();
+        List<BuildingPolygon> result = null;
 
         // 1. Try reading from working directory src/main/resources first (reflects new saves immediately)
         File file = new File(JSON_FILE_PATH);
         if (file.exists() && file.length() > 0) {
             try (FileReader reader = new FileReader(file, StandardCharsets.UTF_8)) {
-                List<BuildingPolygon> result = gson.fromJson(reader, listType);
-                if (result != null) {
-                    return result;
-                }
+                result = GSON.fromJson(reader, LIST_TYPE);
             } catch (Exception ignored) {
                 // Fallback to classpath
             }
         }
 
         // 2. Fallback: Read from classpath resources
-        try (InputStream is = PolygonDataLoader.class.getResourceAsStream(JSON_RESOURCE_PATH)) {
-            if (is != null) {
-                try (InputStreamReader reader = new InputStreamReader(is, StandardCharsets.UTF_8)) {
-                    List<BuildingPolygon> result = gson.fromJson(reader, listType);
-                    if (result != null) {
-                        return result;
+        if (result == null) {
+            try (InputStream is = PolygonDataLoader.class.getResourceAsStream(JSON_RESOURCE_PATH)) {
+                if (is != null) {
+                    try (InputStreamReader reader = new InputStreamReader(is, StandardCharsets.UTF_8)) {
+                        result = GSON.fromJson(reader, LIST_TYPE);
                     }
                 }
+            } catch (Exception e) {
+                System.err.println("Could not load polygons from JSON: " + e.getMessage());
             }
-        } catch (Exception e) {
-            System.err.println("Could not load polygons from JSON: " + e.getMessage());
         }
 
-        return new ArrayList<>();
+        if (result == null) {
+            result = new ArrayList<>();
+        }
+
+        // 3. Auto-detect and reconcile any building images that exist on disk but were not in JSON
+        boolean needsResave = false;
+        for (BuildingPolygon bp : result) {
+            if (bp != null && (bp.getImagePath() == null || bp.getImagePath().isBlank())) {
+                String existingImg = BuildingImageStorage.findExistingImageForBuilding(bp.getName());
+                if (existingImg != null) {
+                    bp.setImagePath(existingImg);
+                    needsResave = true;
+                }
+            }
+        }
+        if (needsResave) {
+            saveBuildingPolygons(result);
+        }
+
+        return result;
+    }
+
+    /**
+     * Persists the list of BuildingPolygon data models to campus.json on disk
+     * in both src/main/resources and target/classes for immediate and restart persistence.
+     */
+    public static synchronized boolean saveBuildingPolygons(List<BuildingPolygon> buildings) {
+        if (buildings == null) return false;
+
+        boolean saved = false;
+        File file = new File(JSON_FILE_PATH);
+        File parent = file.getParentFile();
+        if (parent != null && !parent.exists()) {
+            parent.mkdirs();
+        }
+
+        try (FileWriter writer = new FileWriter(file, StandardCharsets.UTF_8)) {
+            GSON.toJson(buildings, writer);
+            saved = true;
+        } catch (Exception e) {
+            System.err.println("Failed to save buildings to " + JSON_FILE_PATH + ": " + e.getMessage());
+        }
+
+        // Also write to target/classes if available for instant runtime sync
+        File targetFile = new File(JSON_TARGET_PATH);
+        if (targetFile.getParentFile() != null && targetFile.getParentFile().exists()) {
+            try (FileWriter writer = new FileWriter(targetFile, StandardCharsets.UTF_8)) {
+                GSON.toJson(buildings, writer);
+                saved = true;
+            } catch (Exception ignored) {}
+        }
+
+        return saved;
     }
 
     /**

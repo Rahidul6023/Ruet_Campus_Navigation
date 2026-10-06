@@ -237,6 +237,12 @@ public class BuildingInfoCard {
 
     private Node createBuildingImageBox(BuildingPolygon building) {
         String imagePath = building != null ? building.getImagePath() : null;
+        if ((imagePath == null || imagePath.isBlank()) && building != null) {
+            imagePath = BuildingImageStorage.findExistingImageForBuilding(building.getName());
+            if (imagePath != null) {
+                building.setImagePath(imagePath);
+            }
+        }
         Image img = null;
         if (imagePath != null && !imagePath.isBlank()) {
             img = BuildingImageStorage.loadBuildingImage(imagePath);

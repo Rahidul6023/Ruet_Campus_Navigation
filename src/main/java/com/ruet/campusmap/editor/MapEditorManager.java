@@ -706,6 +706,7 @@ public class MapEditorManager {
         if (result.isPresent()) {
             BuildingPolygon bp = result.get();
             savedBuildings.add(bp);
+            com.ruet.campusmap.service.PolygonDataLoader.saveBuildingPolygons(savedBuildings);
 
             boolean showAdminBoxes = active && !previewUserMode;
             Polygon finalPoly = com.ruet.campusmap.service.PolygonDataLoader.createJavaFXPolygon(bp, (clickedBp, p) -> {
@@ -924,6 +925,8 @@ public class MapEditorManager {
                 bp.setVisibleToUsers(visibleToUsers);
                 bp.setImagePath(imagePath);
 
+                com.ruet.campusmap.service.PolygonDataLoader.saveBuildingPolygons(savedBuildings);
+
                 refreshPolygonVisuals();
                 if (buildingLabelsLayer != null) {
                     buildingLabelsLayer.updatePolygonLabel(bp);
@@ -940,6 +943,8 @@ public class MapEditorManager {
             () -> {
                 savedBuildings.remove(bp);
                 polygonLayer.getChildren().remove(poly);
+                com.ruet.campusmap.service.PolygonDataLoader.saveBuildingPolygons(savedBuildings);
+
                 if (buildingLabelsLayer != null) {
                     buildingLabelsLayer.removePolygonLabel(bp);
                 }
@@ -964,6 +969,8 @@ public class MapEditorManager {
             if (poly != null) {
                 polygonLayer.getChildren().remove(poly);
             }
+            com.ruet.campusmap.service.PolygonDataLoader.saveBuildingPolygons(savedBuildings);
+
             if (buildingLabelsLayer != null) {
                 buildingLabelsLayer.removePolygonLabel(bp);
             }
@@ -993,20 +1000,17 @@ public class MapEditorManager {
     }
 
     private void savePolygonsToJson() {
-        File file = new File("src/main/resources/data/campus.json");
-        Gson gson = new GsonBuilder().setPrettyPrinting().create();
-
-        try (FileWriter writer = new FileWriter(file, java.nio.charset.StandardCharsets.UTF_8)) {
-            gson.toJson(savedBuildings, writer);
+        boolean ok = com.ruet.campusmap.service.PolygonDataLoader.saveBuildingPolygons(savedBuildings);
+        if (ok) {
             Alert alert = new Alert(Alert.AlertType.INFORMATION);
             alert.setTitle("Success");
             alert.setHeaderText(null);
             alert.setContentText("Successfully saved " + savedBuildings.size() + " buildings to campus.json!");
             alert.showAndWait();
-        } catch (IOException e) {
+        } else {
             Alert alert = new Alert(Alert.AlertType.ERROR);
             alert.setTitle("Save Error");
-            alert.setContentText("Could not save to JSON: " + e.getMessage());
+            alert.setContentText("Could not save to JSON.");
             alert.showAndWait();
         }
     }

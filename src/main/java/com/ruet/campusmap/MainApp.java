@@ -126,8 +126,8 @@ public class MainApp extends Application {
             buildingInfoCard.showBuilding(clickedBp);
         }, buildingLabelsLayer);
 
-        // Load and display all saved building polygons from campus.json
-        List<BuildingPolygon> initialBuildings = PolygonDataLoader.loadBuildingPolygons();
+        // Use the unified list of saved buildings from editorManager
+        List<BuildingPolygon> initialBuildings = editorManager.getSavedBuildings();
 
         // RUET Campus Brand Badge with Logo SVG (Top-Left)
         CampusBrandBadge brandBadge = new CampusBrandBadge();
@@ -604,6 +604,15 @@ public class MainApp extends Application {
         stage.setTitle("RUET Campus Map");
         stage.setScene(scene);
         stage.setMaximized(true);
+
+        // Ensure all building polygons are saved to disk on window close or shutdown
+        stage.setOnCloseRequest(e -> {
+            PolygonDataLoader.saveBuildingPolygons(editorManager.getSavedBuildings());
+        });
+        Runtime.getRuntime().addShutdownHook(new Thread(() -> {
+            PolygonDataLoader.saveBuildingPolygons(editorManager.getSavedBuildings());
+        }));
+
         stage.show();
 
         // Initial theme application and center fit

@@ -21,7 +21,8 @@
         1230.4595947265625
       ]
     ],
-    "visibleToUsers": false
+    "visibleToUsers": false,
+    "imagePath": "images/buildings/academic_building_02_cse.jpg"
   },
   {
     "name": "Auditorium",
@@ -165,7 +166,8 @@
         1247.171142578125
       ]
     ],
-    "visibleToUsers": false
+    "visibleToUsers": false,
+    "imagePath": "images/buildings/academic_building_1.jpg"
   },
   {
     "name": "ECE Building(Construc.)",
@@ -401,7 +403,8 @@
         316.2554931640625
       ]
     ],
-    "visibleToUsers": false
+    "visibleToUsers": false,
+    "imagePath": "images/buildings/architecture_building.jpg"
   },
   {
     "name": "Civil Building",
@@ -1113,7 +1116,8 @@
         835.0355834960938
       ]
     ],
-    "visibleToUsers": false
+    "visibleToUsers": false,
+    "imagePath": "images/buildings/medical_center.jpg"
   },
   {
     "name": "Bangla Tiffin",
