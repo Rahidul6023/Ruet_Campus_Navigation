@@ -74,9 +74,7 @@
     "x": 262.5,
     "y": 610.0,
     "visibleToUsers": true,
-    "occupants": [
-      "Dr. Md. Rabiul Islam"
-    ]
+    "occupants": []
   },
   {
     "id": "cse-1-208",
@@ -87,9 +85,7 @@
     "x": 262.5,
     "y": 684.0,
     "visibleToUsers": true,
-    "occupants": [
-      "Dr. Md. Shahid Uz Zaman"
-    ]
+    "occupants": []
   },
   {
     "id": "cse-1-211",
@@ -254,7 +250,9 @@
     "x": 1562.0,
     "y": 543.5,
     "visibleToUsers": true,
-    "occupants": []
+    "occupants": [
+      "Dr. Boshir Ahmed"
+    ]
   },
   {
     "id": "cse-1-wr-north",

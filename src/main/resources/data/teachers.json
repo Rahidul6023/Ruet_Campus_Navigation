@@ -1,50 +1,18 @@
 [
   {
     "id": "t-001",
-    "name": "Dr. Md. Al Mamun",
+    "name": "Dr. Md. Shahid Uz Zaman",
     "designation": "Professor & Head",
     "department": "Computer Science & Engineering",
     "buildingName": "Academic Building 02 (CSE)",
-    "roomNumber": "Room 401"
+    "roomNumber": "Room 132"
   },
   {
     "id": "t-002",
-    "name": "Dr. Md. Rabiul Islam",
-    "designation": "Professor",
+    "name": "Dr. Boshir Ahmed",
+    "designation": "Professor & Dean, Faculty of ECE",
     "department": "Computer Science & Engineering",
     "buildingName": "Academic Building 02 (CSE)",
-    "roomNumber": "Room 405"
-  },
-  {
-    "id": "t-003",
-    "name": "Dr. Md. Shahid Uz Zaman",
-    "designation": "Professor",
-    "department": "Computer Science & Engineering",
-    "buildingName": "Academic Building 02 (CSE)",
-    "roomNumber": "Room 408"
-  },
-  {
-    "id": "t-004",
-    "name": "Dr. Md. Faruk Hossain",
-    "designation": "Professor",
-    "department": "Electrical & Electronic Engineering",
-    "buildingName": "Academic Building 2 (EEE)",
-    "roomNumber": "Room 302"
-  },
-  {
-    "id": "t-005",
-    "name": "Dr. Md. Nurul Islam",
-    "designation": "Professor",
-    "department": "Civil Engineering",
-    "buildingName": "Academic Building 4 (Civil)",
-    "roomNumber": "Room 205"
-  },
-  {
-    "id": "t-006",
-    "name": "Dr. Mohammad Rofiqul Islam",
-    "designation": "Professor",
-    "department": "Mechanical Engineering",
-    "buildingName": "Academic Building 3 (CME)",
-    "roomNumber": "Room 310"
+    "roomNumber": "Room 226"
   }
 ]
