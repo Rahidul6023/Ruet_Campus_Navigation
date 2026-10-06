@@ -215,7 +215,8 @@
         1258.7921142578125
       ]
     ],
-    "visibleToUsers": false
+    "visibleToUsers": false,
+    "imagePath": "images/buildings/ece_building_construc.jpg"
   },
   {
     "name": "Cafeteria",
@@ -644,7 +645,8 @@
         1382.55224609375
       ]
     ],
-    "visibleToUsers": false
+    "visibleToUsers": false,
+    "imagePath": "images/buildings/central_field.jpg"
   },
   {
     "name": "Tinshed Hall",
