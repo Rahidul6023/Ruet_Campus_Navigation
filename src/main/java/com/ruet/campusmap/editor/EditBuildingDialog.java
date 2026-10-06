@@ -1,17 +1,24 @@
 package com.ruet.campusmap.editor;
 
 import com.ruet.campusmap.model.BuildingPolygon;
+import com.ruet.campusmap.service.BuildingImageStorage;
 import javafx.geometry.Insets;
 import javafx.geometry.Pos;
 import javafx.scene.Scene;
 import javafx.scene.control.*;
+import javafx.scene.image.Image;
+import javafx.scene.image.ImageView;
 import javafx.scene.layout.HBox;
 import javafx.scene.layout.Priority;
 import javafx.scene.layout.Region;
+import javafx.scene.layout.StackPane;
 import javafx.scene.layout.VBox;
 import javafx.scene.paint.Color;
+import javafx.stage.FileChooser;
 import javafx.stage.Modality;
 import javafx.stage.Stage;
+
+import java.io.File;
 
 /**
  * Modal dialog to edit or delete an existing building polygon hitbox.
@@ -19,7 +26,7 @@ import javafx.stage.Stage;
 public class EditBuildingDialog {
 
     public interface SaveCallback {
-        void onSave(String newName, String newCodeName, String newColor, boolean visibleToUsers);
+        void onSave(String newName, String newCodeName, String newColor, boolean visibleToUsers, String imagePath);
     }
 
     public static void show(
@@ -81,6 +88,95 @@ public class EditBuildingDialog {
 
         VBox colorSection = new VBox(6, colorLabel, colorPicker, presetChips);
 
+        // 4. Picture Upload Section
+        Label imageSectionLabel = new Label("Building Picture (Optional):");
+        imageSectionLabel.setStyle("-fx-font-size: 12px; -fx-text-fill: #5f6368; -fx-font-weight: bold;");
+
+        final String[] currentImagePath = new String[]{model.getImagePath()};
+
+        ImageView imagePreview = new ImageView();
+        imagePreview.setFitWidth(100);
+        imagePreview.setFitHeight(65);
+        imagePreview.setPreserveRatio(true);
+
+        Image existingImg = BuildingImageStorage.loadBuildingImage(model.getImagePath());
+        if (existingImg != null) {
+            imagePreview.setImage(existingImg);
+        }
+
+        Label imageStatus = new Label(model.getImagePath() != null ? "✓ Photo uploaded" : "No picture selected");
+        imageStatus.setStyle("-fx-font-size: 11px; -fx-text-fill: #70757a;");
+
+        Button uploadBtn = new Button("📷 Choose Picture...");
+        uploadBtn.setStyle(
+            "-fx-background-color: #f1f3f4; -fx-text-fill: #1a73e8; -fx-font-weight: bold; " +
+            "-fx-background-radius: 6px; -fx-border-color: #dadce0; -fx-border-radius: 6px; " +
+            "-fx-padding: 5 10; -fx-cursor: hand; -fx-font-size: 11px;"
+        );
+
+        Button removeImageBtn = new Button("✕ Remove");
+        removeImageBtn.setStyle(
+            "-fx-background-color: transparent; -fx-text-fill: #d93025; " +
+            "-fx-cursor: hand; -fx-font-size: 11px; -fx-padding: 5 8;"
+        );
+        boolean hasExistingImg = model.getImagePath() != null && !model.getImagePath().isBlank();
+        removeImageBtn.setVisible(hasExistingImg);
+        removeImageBtn.setManaged(hasExistingImg);
+
+        uploadBtn.setOnAction(e -> {
+            FileChooser chooser = new FileChooser();
+            chooser.setTitle("Select Building Image");
+            chooser.getExtensionFilters().add(
+                new FileChooser.ExtensionFilter("Image Files (*.jpg, *.png, *.jpeg, *.webp)", "*.jpg", "*.png", "*.jpeg", "*.webp")
+            );
+            File chosen = chooser.showOpenDialog(dialog);
+            if (chosen != null) {
+                String bName = nameField.getText().trim().isEmpty() ? "building" : nameField.getText().trim();
+                String savedRelPath = BuildingImageStorage.saveBuildingImage(chosen, bName);
+                if (savedRelPath != null) {
+                    currentImagePath[0] = savedRelPath;
+                    Image loaded = BuildingImageStorage.loadBuildingImage(savedRelPath);
+                    imagePreview.setImage(loaded);
+                    imageStatus.setText("✓ " + chosen.getName());
+                    removeImageBtn.setVisible(true);
+                    removeImageBtn.setManaged(true);
+                }
+            }
+        });
+
+        removeImageBtn.setOnAction(e -> {
+            currentImagePath[0] = null;
+            imagePreview.setImage(null);
+            imageStatus.setText("No picture selected");
+            removeImageBtn.setVisible(false);
+            removeImageBtn.setManaged(false);
+        });
+
+        HBox imageControls = new HBox(8, uploadBtn, removeImageBtn);
+        imageControls.setAlignment(Pos.CENTER_LEFT);
+
+        VBox imageDetails = new VBox(4, imageControls, imageStatus);
+        imageDetails.setAlignment(Pos.CENTER_LEFT);
+
+        StackPane previewContainer = new StackPane(imagePreview);
+        previewContainer.setPrefSize(100, 65);
+        previewContainer.setMinSize(100, 65);
+        previewContainer.setMaxSize(100, 65);
+        previewContainer.setStyle(
+            "-fx-background-color: #e8eaed; -fx-background-radius: 6px; " +
+            "-fx-border-color: #dadce0; -fx-border-radius: 6px; -fx-border-width: 1px;"
+        );
+
+        HBox imageBox = new HBox(12, previewContainer, imageDetails);
+        imageBox.setAlignment(Pos.CENTER_LEFT);
+        imageBox.setPadding(new Insets(8));
+        imageBox.setStyle(
+            "-fx-background-color: #f8f9fa; -fx-background-radius: 8px; " +
+            "-fx-border-color: #dadce0; -fx-border-radius: 8px; -fx-border-width: 1px;"
+        );
+
+        VBox imageSection = new VBox(4, imageSectionLabel, imageBox);
+
         // Visibility checkbox (boxes default to hidden for regular users)
         CheckBox visibleCheck = new CheckBox("Visible to regular users");
         visibleCheck.setSelected(model.isVisibleToUsers());
@@ -116,7 +212,7 @@ public class EditBuildingDialog {
             boolean isVisible = visibleCheck.isSelected();
             dialog.close();
             if (onSave != null) {
-                onSave.onSave(newName, newCode, hex, isVisible);
+                onSave.onSave(newName, newCode, hex, isVisible, currentImagePath[0]);
             }
         });
 
@@ -152,18 +248,19 @@ public class EditBuildingDialog {
         HBox buttonBar = new HBox(8, deleteBtn, spacer, cancelBtn, saveBtn);
         buttonBar.setAlignment(Pos.CENTER_RIGHT);
 
-        VBox layout = new VBox(12,
+        VBox layout = new VBox(10,
             titleLabel,
             new VBox(4, nameLabel, nameField),
             new VBox(4, codeLabel, codeField),
             colorSection,
+            imageSection,
             visibilityCard,
             buttonBar
         );
-        layout.setPadding(new Insets(20));
+        layout.setPadding(new Insets(18));
         layout.setStyle("-fx-background-color: white;");
 
-        dialog.setScene(new Scene(layout, 410, 440));
+        dialog.setScene(new Scene(layout, 430, 560));
         dialog.setResizable(false);
         dialog.show();
     }

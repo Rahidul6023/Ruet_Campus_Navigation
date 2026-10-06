@@ -11,6 +11,7 @@ public class BuildingPolygon {
     private String color;
     private List<double[]> points;
     private boolean visibleToUsers = false;
+    private String imagePath;
     
     public BuildingPolygon() {}
 
@@ -23,11 +24,16 @@ public class BuildingPolygon {
     }
 
     public BuildingPolygon(String name, String codeName, String color, List<double[]> points, boolean visibleToUsers){
+        this(name, codeName, color, points, visibleToUsers, null);
+    }
+
+    public BuildingPolygon(String name, String codeName, String color, List<double[]> points, boolean visibleToUsers, String imagePath){
         this.name = name;
         this.codeName = codeName;
         this.color = color;
         this.points = points;
         this.visibleToUsers = visibleToUsers;
+        this.imagePath = imagePath;
     }
 
     public String getName(){
@@ -68,5 +74,13 @@ public class BuildingPolygon {
 
     public void setVisibleToUsers(boolean visibleToUsers) {
         this.visibleToUsers = visibleToUsers;
+    }
+
+    public String getImagePath() {
+        return imagePath;
+    }
+
+    public void setImagePath(String imagePath) {
+        this.imagePath = imagePath;
     }
 }

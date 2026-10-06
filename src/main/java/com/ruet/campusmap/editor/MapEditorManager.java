@@ -4,6 +4,7 @@ import com.google.gson.Gson;
 import com.google.gson.GsonBuilder;
 import com.ruet.campusmap.model.BuildingPolygon;
 import com.ruet.campusmap.model.Teacher;
+import com.ruet.campusmap.service.BuildingImageStorage;
 import com.ruet.campusmap.service.TeacherDataLoader;
 import com.ruet.campusmap.view.BuildingLabelsLayer;
 import javafx.geometry.Insets;
@@ -13,6 +14,9 @@ import javafx.geometry.Pos;
 import javafx.scene.Group;
 import javafx.scene.control.*;
 import javafx.scene.effect.DropShadow;
+import javafx.scene.image.Image;
+import javafx.scene.image.ImageView;
+import javafx.stage.FileChooser;
 import javafx.scene.input.KeyCode;
 import javafx.scene.input.MouseButton;
 import javafx.scene.layout.HBox;
@@ -776,6 +780,89 @@ public class MapEditorManager {
 
         VBox colorSection = new VBox(6, colorLabel, colorPicker, presetChips);
 
+        // Picture Upload Section
+        Label imageSectionLabel = new Label("Building Picture (Optional):");
+        imageSectionLabel.setStyle("-fx-font-size: 12px; -fx-text-fill: #5f6368; -fx-font-weight: bold;");
+
+        final String[] newImagePath = new String[]{null};
+
+        ImageView imagePreview = new ImageView();
+        imagePreview.setFitWidth(100);
+        imagePreview.setFitHeight(65);
+        imagePreview.setPreserveRatio(true);
+
+        Label imageStatus = new Label("No picture selected");
+        imageStatus.setStyle("-fx-font-size: 11px; -fx-text-fill: #70757a;");
+
+        Button uploadBtn = new Button("📷 Choose Picture...");
+        uploadBtn.setStyle(
+            "-fx-background-color: #f1f3f4; -fx-text-fill: #1a73e8; -fx-font-weight: bold; " +
+            "-fx-background-radius: 6px; -fx-border-color: #dadce0; -fx-border-radius: 6px; " +
+            "-fx-padding: 5 10; -fx-cursor: hand; -fx-font-size: 11px;"
+        );
+
+        Button removeImageBtn = new Button("✕ Remove");
+        removeImageBtn.setStyle(
+            "-fx-background-color: transparent; -fx-text-fill: #d93025; " +
+            "-fx-cursor: hand; -fx-font-size: 11px; -fx-padding: 5 8;"
+        );
+        removeImageBtn.setVisible(false);
+        removeImageBtn.setManaged(false);
+
+        uploadBtn.setOnAction(e -> {
+            FileChooser chooser = new FileChooser();
+            chooser.setTitle("Select Building Image");
+            chooser.getExtensionFilters().add(
+                new FileChooser.ExtensionFilter("Image Files (*.jpg, *.png, *.jpeg, *.webp)", "*.jpg", "*.png", "*.jpeg", "*.webp")
+            );
+            File chosen = chooser.showOpenDialog(dialog.getDialogPane().getScene().getWindow());
+            if (chosen != null) {
+                String bName = nameField.getText().trim().isEmpty() ? "building" : nameField.getText().trim();
+                String savedRelPath = BuildingImageStorage.saveBuildingImage(chosen, bName);
+                if (savedRelPath != null) {
+                    newImagePath[0] = savedRelPath;
+                    Image loaded = BuildingImageStorage.loadBuildingImage(savedRelPath);
+                    imagePreview.setImage(loaded);
+                    imageStatus.setText("✓ " + chosen.getName());
+                    removeImageBtn.setVisible(true);
+                    removeImageBtn.setManaged(true);
+                }
+            }
+        });
+
+        removeImageBtn.setOnAction(e -> {
+            newImagePath[0] = null;
+            imagePreview.setImage(null);
+            imageStatus.setText("No picture selected");
+            removeImageBtn.setVisible(false);
+            removeImageBtn.setManaged(false);
+        });
+
+        HBox imageControls = new HBox(8, uploadBtn, removeImageBtn);
+        imageControls.setAlignment(Pos.CENTER_LEFT);
+
+        VBox imageDetails = new VBox(4, imageControls, imageStatus);
+        imageDetails.setAlignment(Pos.CENTER_LEFT);
+
+        StackPane previewContainer = new StackPane(imagePreview);
+        previewContainer.setPrefSize(100, 65);
+        previewContainer.setMinSize(100, 65);
+        previewContainer.setMaxSize(100, 65);
+        previewContainer.setStyle(
+            "-fx-background-color: #e8eaed; -fx-background-radius: 6px; " +
+            "-fx-border-color: #dadce0; -fx-border-radius: 6px; -fx-border-width: 1px;"
+        );
+
+        HBox imageBox = new HBox(12, previewContainer, imageDetails);
+        imageBox.setAlignment(Pos.CENTER_LEFT);
+        imageBox.setPadding(new Insets(8));
+        imageBox.setStyle(
+            "-fx-background-color: #f8f9fa; -fx-background-radius: 8px; " +
+            "-fx-border-color: #dadce0; -fx-border-radius: 8px; -fx-border-width: 1px;"
+        );
+
+        VBox imageSection = new VBox(4, imageSectionLabel, imageBox);
+
         // Visibility checkbox (boxes default to hidden for regular users)
         CheckBox visibleCheck = new CheckBox("Visible to regular users");
         visibleCheck.setSelected(false);
@@ -789,7 +876,7 @@ public class MapEditorManager {
         visibilityCard.setPadding(new Insets(10));
         visibilityCard.setStyle("-fx-background-color: #f8f9fa; -fx-background-radius: 8px; -fx-border-color: #dadce0; -fx-border-radius: 8px;");
 
-        content.getChildren().addAll(nameLabel, nameField, codeLabel, codeField, colorSection, visibilityCard);
+        content.getChildren().addAll(nameLabel, nameField, codeLabel, codeField, colorSection, imageSection, visibilityCard);
         dialog.getDialogPane().setContent(content);
 
         dialog.setResultConverter(dialogButton -> {
@@ -804,7 +891,7 @@ public class MapEditorManager {
                     (int)(c.getBlue() * 255)
                 );
                 boolean visibleToUsers = visibleCheck.isSelected();
-                return new BuildingPolygon(name, code, hex, points, visibleToUsers);
+                return new BuildingPolygon(name, code, hex, points, visibleToUsers, newImagePath[0]);
             }
             return null;
         });
@@ -830,11 +917,12 @@ public class MapEditorManager {
     private void openEditBuildingDialog(BuildingPolygon bp, Polygon poly) {
         EditBuildingDialog.show(
             bp,
-            (newName, newCodeName, newColor, visibleToUsers) -> {
+            (newName, newCodeName, newColor, visibleToUsers, imagePath) -> {
                 bp.setName(newName);
                 bp.setCodeName(newCodeName);
                 bp.setColor(newColor);
                 bp.setVisibleToUsers(visibleToUsers);
+                bp.setImagePath(imagePath);
 
                 refreshPolygonVisuals();
                 if (buildingLabelsLayer != null) {
