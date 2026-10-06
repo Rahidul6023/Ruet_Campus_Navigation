@@ -3,6 +3,7 @@ package com.ruet.campusmap.view;
 import com.ruet.campusmap.model.BuildingPolygon;
 import com.ruet.campusmap.model.RoomLocation;
 import com.ruet.campusmap.model.Teacher;
+import com.ruet.campusmap.service.BuildingImageStorage;
 import com.ruet.campusmap.service.RoomRegistry;
 import com.ruet.campusmap.service.TeacherDataLoader;
 import javafx.animation.FadeTransition;
@@ -12,11 +13,14 @@ import javafx.animation.PauseTransition;
 import javafx.animation.TranslateTransition;
 import javafx.geometry.Insets;
 import javafx.geometry.Pos;
+import javafx.scene.Node;
 import javafx.scene.control.Button;
 import javafx.scene.control.Label;
 import javafx.scene.control.Separator;
 import javafx.scene.control.Tooltip;
 import javafx.scene.effect.DropShadow;
+import javafx.scene.image.Image;
+import javafx.scene.image.ImageView;
 import javafx.scene.input.Clipboard;
 import javafx.scene.input.ClipboardContent;
 import javafx.scene.layout.HBox;
@@ -25,6 +29,7 @@ import javafx.scene.layout.Region;
 import javafx.scene.layout.StackPane;
 import javafx.scene.layout.VBox;
 import javafx.scene.paint.Color;
+import javafx.scene.shape.Rectangle;
 import javafx.scene.shape.SVGPath;
 import javafx.util.Duration;
 
@@ -34,7 +39,8 @@ import java.util.function.Consumer;
 
 /**
  * Modern floating Google Maps-style place sheet that displays building or POI details
- * when clicked on the map, with smooth slide-up entrance animation and action chips.
+ * when clicked on the map, with building photo preview, smooth slide-up entrance animation,
+ * and vertically stacked action buttons.
  */
 public class BuildingInfoCard {
 
@@ -43,16 +49,15 @@ public class BuildingInfoCard {
     private final Label titleLabel;
     private final Label subtitleLabel;
     private final VBox dynamicSection;
-    private final Button directionsBtn;
     private final Button copyBtn;
     private final Button innerMapBtn;
     private final StackPane closeBtn;
     private final SVGPath closeIcon;
-    private final SVGPath directionsIcon;
     private final SVGPath copyIcon;
     private final SVGPath innerMapIcon;
     private final Separator divider;
     private final Label feedbackLabel;
+    private final VBox actionsBox;
     private java.util.function.Consumer<BuildingPolygon> onOpenInnerMap;
     private Consumer<RoomLocation> onOpenRoom;
     private Runnable onCloseCallback;
@@ -112,17 +117,23 @@ public class BuildingInfoCard {
         subtitleLabel.setWrapText(true);
         subtitleLabel.setStyle("-fx-font-size: 13px; -fx-font-family: 'Segoe UI', Roboto, sans-serif;");
 
+        // Dynamic Section for building photo or contextual details
+        dynamicSection = new VBox(8);
+        dynamicSection.setFillWidth(true);
+
         // Subtle divider
         divider = new Separator();
         divider.setStyle("-fx-opacity: 0.4;");
 
-        // Action Buttons Row (Inner Map + Directions + Copy Name)
+        // Vertical Action Buttons: Floor Plan (if available) + Copy Name
         innerMapIcon = new SVGPath();
         innerMapIcon.setContent("M11.99 18.54l-7.37-5.73L3 14.07l9 7 9-7-1.63-1.27-7.38 5.74zM12 16l7.36-5.73L21 9l-9-7-9 7 1.63 1.27L12 16z");
         innerMapIcon.setScaleX(0.75);
         innerMapIcon.setScaleY(0.75);
 
         innerMapBtn = new Button("Floor Plan", innerMapIcon);
+        innerMapBtn.setMaxWidth(Double.MAX_VALUE);
+        innerMapBtn.setAlignment(Pos.CENTER);
         innerMapBtn.setVisible(false);
         innerMapBtn.setManaged(false);
         innerMapBtn.setOnAction(e -> {
@@ -131,38 +142,25 @@ public class BuildingInfoCard {
             }
         });
 
-        directionsIcon = new SVGPath();
-        directionsIcon.setContent("M21.71 11.29l-9-9a.996.996 0 0 0-1.41 0l-9 9a.996.996 0 0 0 0 1.41l9 9c.39.39 1.02.39 1.41 0l9-9a.996.996 0 0 0 0-1.41zM14 14.5V12h-4v3H8v-4c0-.55.45-1 1-1h5V7.5l3.5 3.5-3.5 3.5z");
-        directionsIcon.setFill(Color.WHITE);
-        directionsIcon.setScaleX(0.8);
-        directionsIcon.setScaleY(0.8);
-
-        directionsBtn = new Button("Directions", directionsIcon);
-        directionsBtn.setStyle(
-            "-fx-background-color: #1a73e8; " +
-            "-fx-text-fill: #ffffff; " +
-            "-fx-font-size: 12px; " +
-            "-fx-font-weight: bold; " +
-            "-fx-background-radius: 20px; " +
-            "-fx-cursor: hand; " +
-            "-fx-padding: 7 14;"
-        );
-
         copyIcon = new SVGPath();
         copyIcon.setContent("M16 1H4c-1.1 0-2 .9-2 2v14h2V3h12V1zm3 4H8c-1.1 0-2 .9-2 2v14c0 1.1.9 2 2 2h11c1.1 0 2-.9 2-2V7c0-1.1-.9-2-2-2zm0 16H8V7h11v14z");
         copyIcon.setScaleX(0.75);
         copyIcon.setScaleY(0.75);
 
         copyBtn = new Button("Copy Name", copyIcon);
+        copyBtn.setMaxWidth(Double.MAX_VALUE);
+        copyBtn.setAlignment(Pos.CENTER);
         copyBtn.setStyle(
             "-fx-font-size: 12px; " +
             "-fx-font-weight: 500; " +
-            "-fx-background-radius: 20px; " +
+            "-fx-background-radius: 10px; " +
             "-fx-cursor: hand; " +
-            "-fx-padding: 7 12;"
+            "-fx-padding: 8 14;"
         );
 
         feedbackLabel = new Label("✓ Copied!");
+        feedbackLabel.setAlignment(Pos.CENTER);
+        feedbackLabel.setMaxWidth(Double.MAX_VALUE);
         feedbackLabel.setStyle("-fx-font-size: 11px; -fx-text-fill: #34a853; -fx-font-weight: bold;");
         feedbackLabel.setVisible(false);
         feedbackLabel.setManaged(false);
@@ -183,13 +181,11 @@ public class BuildingInfoCard {
             pause.play();
         });
 
-        dynamicSection = new VBox(8);
-        dynamicSection.setFillWidth(true);
+        actionsBox = new VBox(8, innerMapBtn, copyBtn, feedbackLabel);
+        actionsBox.setAlignment(Pos.CENTER);
+        actionsBox.setFillWidth(true);
 
-        HBox actionsRow = new HBox(8, innerMapBtn, directionsBtn, copyBtn, feedbackLabel);
-        actionsRow.setAlignment(Pos.CENTER_LEFT);
-
-        cardContainer.getChildren().addAll(topRow, titleLabel, subtitleLabel, dynamicSection, divider, actionsRow);
+        cardContainer.getChildren().addAll(topRow, titleLabel, subtitleLabel, dynamicSection, divider, actionsBox);
 
         StackPane.setAlignment(cardContainer, Pos.BOTTOM_LEFT);
         StackPane.setMargin(cardContainer, new Insets(0, 0, 80, 24));
@@ -229,43 +225,76 @@ public class BuildingInfoCard {
         boolean hasInner = com.ruet.campusmap.service.InnerMapRegistry.hasInnerMap(name);
         innerMapBtn.setVisible(hasInner);
         innerMapBtn.setManaged(hasInner);
+        copyBtn.setVisible(true);
+        copyBtn.setManaged(true);
 
-        // Clear and populate faculty situated in this building
+        // Building picture box or identical placeholder
         dynamicSection.getChildren().clear();
-        List<Teacher> teachersInBuilding = TeacherDataLoader.loadTeachers().stream()
-            .filter(t -> t.getBuildingName() != null && t.getBuildingName().equalsIgnoreCase(name))
-            .toList();
-
-        if (!teachersInBuilding.isEmpty()) {
-            VBox facultyBox = new VBox(4);
-            facultyBox.setPadding(new Insets(8, 10, 8, 10));
-            facultyBox.setStyle(
-                "-fx-background-color: " + (isDark ? "#2d2f31;" : "#f8f9fa;") +
-                "-fx-background-radius: 8px; -fx-border-color: " + (isDark ? "#3c4043;" : "#dadce0;") +
-                "-fx-border-radius: 8px; -fx-border-width: 1px;"
-            );
-
-            Label header = new Label("👨‍🏫 Faculty in this Building (" + teachersInBuilding.size() + "):");
-            header.setStyle("-fx-font-size: 11px; -fx-font-weight: bold; -fx-text-fill: " + (isDark ? "#9aa0a6;" : "#5f6368;"));
-            facultyBox.getChildren().add(header);
-
-            for (Teacher t : teachersInBuilding) {
-                HBox row = new HBox(6);
-                row.setAlignment(Pos.CENTER_LEFT);
-                row.setCursor(javafx.scene.Cursor.HAND);
-                Label tName = new Label("• " + t.getName());
-                tName.setStyle("-fx-font-size: 11px; -fx-text-fill: " + (isDark ? "#e8eaed;" : "#202124;"));
-                HBox.setHgrow(tName, Priority.ALWAYS);
-                Label tRoom = new Label(t.getRoomNumber() != null ? t.getRoomNumber() : "");
-                tRoom.setStyle("-fx-font-size: 10px; -fx-font-weight: bold; -fx-text-fill: " + (isDark ? "#8ab4f8;" : "#1a73e8;"));
-                row.getChildren().addAll(tName, tRoom);
-                row.setOnMouseClicked(e -> showTeacher(t, () -> showBuilding(building)));
-                facultyBox.getChildren().add(row);
-            }
-            dynamicSection.getChildren().add(facultyBox);
-        }
+        dynamicSection.getChildren().add(createBuildingImageBox(building));
 
         animateShow();
+    }
+
+    private Node createBuildingImageBox(BuildingPolygon building) {
+        String imagePath = building != null ? building.getImagePath() : null;
+        Image img = null;
+        if (imagePath != null && !imagePath.isBlank()) {
+            img = BuildingImageStorage.loadBuildingImage(imagePath);
+        }
+
+        if (img != null && !img.isError()) {
+            StackPane imgContainer = new StackPane();
+            imgContainer.setPrefSize(330, 180);
+            imgContainer.setMinSize(330, 180);
+            imgContainer.setMaxSize(330, 180);
+            imgContainer.setAlignment(Pos.CENTER);
+            imgContainer.setStyle(
+                "-fx-background-color: " + (isDark ? "#1e1e24;" : "#f1f3f4;") +
+                "-fx-background-radius: 12px; " +
+                "-fx-border-color: " + (isDark ? "#3c4043;" : "#dadce0;") +
+                "-fx-border-radius: 12px; -fx-border-width: 1px;"
+            );
+
+            ImageView iv = new ImageView(img);
+            iv.setFitWidth(330);
+            iv.setFitHeight(180);
+            iv.setPreserveRatio(true);
+            iv.setSmooth(true);
+
+            Rectangle clip = new Rectangle(330, 180);
+            clip.setArcWidth(24);
+            clip.setArcHeight(24);
+            imgContainer.setClip(clip);
+
+            imgContainer.getChildren().add(iv);
+            return imgContainer;
+        } else {
+            VBox placeholderBox = new VBox(8);
+            placeholderBox.setAlignment(Pos.CENTER);
+            placeholderBox.setPrefSize(330, 180);
+            placeholderBox.setMinSize(330, 180);
+            placeholderBox.setMaxSize(330, 180);
+            placeholderBox.setStyle(
+                "-fx-background-color: " + (isDark ? "#282a2d;" : "#f8f9fa;") +
+                "-fx-background-radius: 12px; " +
+                "-fx-border-color: " + (isDark ? "#444746;" : "#dadce0;") +
+                "-fx-border-radius: 12px; " +
+                "-fx-border-width: 1.5px; " +
+                "-fx-border-style: dashed;"
+            );
+
+            Label iconLabel = new Label("🏛️");
+            iconLabel.setStyle("-fx-font-size: 32px; -fx-opacity: 0.6;");
+
+            Label textLabel = new Label("No picture uploaded");
+            textLabel.setStyle(
+                "-fx-font-size: 13px; -fx-font-weight: 500; -fx-text-fill: " +
+                (isDark ? "#9aa0a6;" : "#70757a;")
+            );
+
+            placeholderBox.getChildren().addAll(iconLabel, textLabel);
+            return placeholderBox;
+        }
     }
 
     public void showTeacher(Teacher teacher, Runnable onNavigateToBuilding) {
@@ -364,12 +393,6 @@ public class BuildingInfoCard {
             dynamicSection.getChildren().add(viewRoomBtn);
         }
 
-        directionsBtn.setOnAction(e -> {
-            if (onNavigateToBuilding != null) {
-                onNavigateToBuilding.run();
-            }
-        });
-
         animateShow();
     }
 
@@ -442,12 +465,6 @@ public class BuildingInfoCard {
         });
 
         dynamicSection.getChildren().addAll(detailsBox, enterBtn);
-
-        directionsBtn.setOnAction(e -> {
-            if (onEnterBuilding != null) {
-                onEnterBuilding.run();
-            }
-        });
 
         animateShow();
     }
@@ -557,23 +574,23 @@ public class BuildingInfoCard {
                 "-fx-background-color: #303134; " +
                 "-fx-text-fill: #e8eaed; " +
                 "-fx-border-color: #5f6368; " +
-                "-fx-border-radius: 20px; " +
+                "-fx-border-radius: 10px; " +
                 "-fx-border-width: 1px; " +
                 "-fx-font-size: 12px; " +
                 "-fx-font-weight: 500; " +
-                "-fx-background-radius: 20px; " +
+                "-fx-background-radius: 10px; " +
                 "-fx-cursor: hand; " +
-                "-fx-padding: 7 12;"
+                "-fx-padding: 8 14;"
             );
             copyIcon.setFill(Color.web("#bdc1c6"));
             innerMapBtn.setStyle(
                 "-fx-background-color: #14b8a6; " +
                 "-fx-text-fill: #0f172a; " +
-                "-fx-font-size: 12px; " +
+                "-fx-font-size: 13px; " +
                 "-fx-font-weight: bold; " +
-                "-fx-background-radius: 20px; " +
+                "-fx-background-radius: 10px; " +
                 "-fx-cursor: hand; " +
-                "-fx-padding: 7 14;"
+                "-fx-padding: 8 14;"
             );
             innerMapIcon.setFill(Color.web("#0f172a"));
         } else {
@@ -600,25 +617,30 @@ public class BuildingInfoCard {
                 "-fx-background-color: #f1f3f4; " +
                 "-fx-text-fill: #3c4043; " +
                 "-fx-border-color: #dadce0; " +
-                "-fx-border-radius: 20px; " +
+                "-fx-border-radius: 10px; " +
                 "-fx-border-width: 1px; " +
                 "-fx-font-size: 12px; " +
                 "-fx-font-weight: 500; " +
-                "-fx-background-radius: 20px; " +
+                "-fx-background-radius: 10px; " +
                 "-fx-cursor: hand; " +
-                "-fx-padding: 7 12;"
+                "-fx-padding: 8 14;"
             );
             copyIcon.setFill(Color.web("#5f6368"));
             innerMapBtn.setStyle(
                 "-fx-background-color: #0d9488; " +
                 "-fx-text-fill: #ffffff; " +
-                "-fx-font-size: 12px; " +
+                "-fx-font-size: 13px; " +
                 "-fx-font-weight: bold; " +
-                "-fx-background-radius: 20px; " +
+                "-fx-background-radius: 10px; " +
                 "-fx-cursor: hand; " +
-                "-fx-padding: 7 14;"
+                "-fx-padding: 8 14;"
             );
             innerMapIcon.setFill(Color.WHITE);
+        }
+
+        if (currentBuilding != null && cardContainer.isVisible()) {
+            dynamicSection.getChildren().clear();
+            dynamicSection.getChildren().add(createBuildingImageBox(currentBuilding));
         }
     }
 
